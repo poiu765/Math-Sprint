@@ -73,6 +73,21 @@
     }
     .status.ok{ color:#047857; font-weight:700; }
     .status.bad{ color:#b91c1c; font-weight:700; }
+    .btn.danger-muted{
+      background:#f7d6d6;
+      border-color:#f0b9b9;
+      color:#8b1f1f;
+    }
+    .weak-list{
+      margin:0; padding-left:0; list-style:none;
+      display:flex; flex-direction:column; gap:6px;
+    }
+    .weak-item{
+      display:flex; align-items:center; gap:8px;
+      padding:8px 10px; border:1px solid var(--line);
+      border-radius:10px; background:#fff;
+    }
+    .weak-item label{ font-size:12px; color:var(--muted); }
     .stat-grid{
       display:grid; gap:10px;
       grid-template-columns: repeat(2, minmax(0,1fr));
@@ -122,6 +137,15 @@
         <div class="status" id="practiceStatus"></div>
         <div class="small" id="practiceMeta"></div>
       </div>
+
+      <div class="hr"></div>
+
+      <div class="row" style="align-items:center; justify-content:space-between;">
+        <div style="font-weight:800;">약점 관리</div>
+        <button id="weakDeleteBtn" class="btn danger-muted" type="button" disabled>선택 삭제</button>
+      </div>
+      <div class="small" id="weakEmpty" style="margin-top:6px;">삭제할 약점이 없습니다.</div>
+      <ul class="weak-list" id="weakList" style="margin-top:8px;"></ul>
     </div>
   </div>
 
@@ -152,10 +176,14 @@
     const practiceNext = document.getElementById("practiceNext");
     const practiceStatus = document.getElementById("practiceStatus");
     const practiceMeta = document.getElementById("practiceMeta");
+    const weakDeleteBtn = document.getElementById("weakDeleteBtn");
+    const weakEmpty = document.getElementById("weakEmpty");
+    const weakList = document.getElementById("weakList");
 
     let currentUserId = null;
     let practiceQueue = [];
     let currentWeak = null;
+    let selectedWeak = new Set();
 
     function opLabel(op){
       return op === "add" ? "덧셈" : op === "sub" ? "뺄셈" : op === "mul" ? "곱셈" : "나눗셈";
@@ -219,6 +247,46 @@
       });
       statsBox.innerHTML = html;
       statsEmpty.style.display = "none";
+    }
+
+    function formatDate(ts){
+      const d = new Date(ts);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+    function renderWeakList(uid){
+      selectedWeak = new Set();
+      if(!uid){
+        weakList.innerHTML = "";
+        weakEmpty.style.display = "block";
+        weakDeleteBtn.disabled = true;
+        return;
+      }
+      const data = loadWeak(uid);
+      const items = Object.values(data.items || {});
+      if(items.length === 0){
+        weakList.innerHTML = "";
+        weakEmpty.style.display = "block";
+        weakDeleteBtn.disabled = true;
+        return;
+      }
+      weakEmpty.style.display = "none";
+      const rows = items.map(item => {
+        const reasons = [];
+        if(item.reasons && item.reasons.wrong) reasons.push("오답");
+        if(item.reasons && item.reasons.slow) reasons.push("느림");
+        const due = item.nextAt ? formatDate(item.nextAt) : "—";
+        return `
+          <li class="weak-item">
+            <input type="checkbox" class="weak-check" data-id="${item.id}">
+            <label>${item.problem} = ${item.answer} · ${opLabel(item.op)} · ${item.level} · 다음: ${due} · ${reasons.join("/") || "약점"}</label>
+          </li>
+        `;
+      });
+      weakList.innerHTML = rows.join("");
+      weakDeleteBtn.disabled = true;
     }
 
     function getDueWeak(uid){
@@ -321,6 +389,7 @@
       practiceSubmit.disabled = true;
       practiceNext.disabled = false;
       renderStats(currentUserId);
+      renderWeakList(currentUserId);
     });
 
     practiceNext.addEventListener("click", () => {
@@ -339,6 +408,31 @@
       }
     });
 
+    weakList.addEventListener("change", (e) => {
+      const target = e.target;
+      if(!target.classList.contains("weak-check")) return;
+      const id = target.getAttribute("data-id");
+      if(target.checked){
+        selectedWeak.add(id);
+      } else {
+        selectedWeak.delete(id);
+      }
+      weakDeleteBtn.disabled = selectedWeak.size === 0;
+    });
+
+    weakDeleteBtn.addEventListener("click", () => {
+      if(!currentUserId || selectedWeak.size === 0) return;
+      const data = loadWeak(currentUserId);
+      selectedWeak.forEach(id => {
+        delete data.items[id];
+      });
+      saveWeak(currentUserId, data);
+      renderWeakList(currentUserId);
+      practiceQueue = [];
+      currentWeak = null;
+      showPracticeIdle("약점이 삭제되었습니다.");
+    });
+
     auth.onAuthStateChanged((user) => {
       if(user){
         const label = user.displayName || user.email || "로그인됨";
@@ -346,11 +440,13 @@
         logoutBtn.disabled = false;
         currentUserId = user.uid;
         renderStats(user.uid);
+        renderWeakList(user.uid);
       } else {
         authStatus.textContent = "로그인하지 않으면 기록을 볼 수 없습니다.";
         logoutBtn.disabled = true;
         currentUserId = null;
         renderStats(null);
+        renderWeakList(null);
         showPracticeIdle("로그인 후 약점 연습을 사용할 수 있습니다.");
       }
     });
