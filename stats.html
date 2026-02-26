@@ -105,6 +105,12 @@
       border-radius:10px; background:#fff;
     }
     .weak-item label{ font-size:12px; color:var(--muted); }
+    @media print{
+      body{ background:#fff; }
+      .btn, #logoutBtn, #practiceBtn, #practiceBox, #weakDeleteBtn, #weakSelectAllBtn, #weakPrintBtn{ display:none !important; }
+      .card{ border:none; }
+      #weakList .weak-item{ border:1px solid #ddd; }
+    }
     .stat-grid{
       display:grid; gap:10px;
       grid-template-columns: repeat(2, minmax(0,1fr));
@@ -190,6 +196,7 @@
         <div style="font-weight:800;">약점 관리</div>
         <div class="row">
           <button id="weakSelectAllBtn" class="btn secondary" type="button" disabled>전체선택</button>
+          <button id="weakPrintBtn" class="btn secondary" type="button" disabled>인쇄</button>
           <button id="weakDeleteBtn" class="btn danger-muted" type="button" disabled>선택 삭제</button>
         </div>
       </div>
@@ -241,6 +248,7 @@
     const weakEmpty = document.getElementById("weakEmpty");
     const weakList = document.getElementById("weakList");
     const weakSelectAllBtn = document.getElementById("weakSelectAllBtn");
+    const weakPrintBtn = document.getElementById("weakPrintBtn");
     const adminCard = document.getElementById("adminCard");
     const adminStatus = document.getElementById("adminStatus");
     const adminBox = document.getElementById("adminBox");
@@ -393,6 +401,7 @@
         weakEmpty.style.display = "block";
         weakDeleteBtn.disabled = true;
         weakSelectAllBtn.disabled = true;
+        weakPrintBtn.disabled = true;
         return;
       }
       const data = loadWeak(uid);
@@ -402,6 +411,7 @@
         weakEmpty.style.display = "block";
         weakDeleteBtn.disabled = true;
         weakSelectAllBtn.disabled = true;
+        weakPrintBtn.disabled = true;
         return;
       }
       weakEmpty.style.display = "none";
@@ -420,6 +430,7 @@
       weakList.innerHTML = rows.join("");
       weakDeleteBtn.disabled = true;
       weakSelectAllBtn.disabled = false;
+      weakPrintBtn.disabled = true;
     }
 
     function getDueWeak(uid){
@@ -649,6 +660,7 @@
         selectedWeak.delete(id);
       }
       weakDeleteBtn.disabled = selectedWeak.size === 0;
+      weakPrintBtn.disabled = selectedWeak.size === 0;
     });
 
     weakSelectAllBtn.addEventListener("click", () => {
@@ -663,6 +675,22 @@
         }
       });
       weakDeleteBtn.disabled = selectedWeak.size === 0;
+      weakPrintBtn.disabled = selectedWeak.size === 0;
+    });
+
+    weakPrintBtn.addEventListener("click", () => {
+      const checks = weakList.querySelectorAll(".weak-check");
+      checks.forEach(c => {
+        const li = c.closest(".weak-item");
+        if(!li) return;
+        li.style.display = c.checked ? "flex" : "none";
+      });
+      window.print();
+      checks.forEach(c => {
+        const li = c.closest(".weak-item");
+        if(!li) return;
+        li.style.display = "flex";
+      });
     });
 
     weakDeleteBtn.addEventListener("click", () => {
