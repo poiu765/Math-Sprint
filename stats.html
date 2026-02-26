@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>내 기록</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --fg:#111111;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+      --card:#fafafa;
+      --btn:#111111;
+      --btnfg:#ffffff;
+      --danger:#b91c1c;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; background:var(--bg); color:var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif;
+      line-height:1.35;
+    }
+    .wrap{ max-width:980px; margin:0 auto; padding:20px; }
+    h1{ margin:0; font-size:20px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .btn{
+      padding:10px 14px;
+      border:1px solid var(--btn);
+      background:var(--btn);
+      color:var(--btnfg);
+      border-radius:10px;
+      font-size:15px;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-block;
+    }
+    .btn.secondary{ background:#fff; color:var(--fg); border-color:var(--line); }
+    .card{
+      border:1px solid var(--line);
+      background:var(--card);
+      border-radius:12px;
+      padding:14px;
+      margin-top:12px;
+    }
+    .small{ font-size:12px; color:var(--muted); }
+    .stat-grid{
+      display:grid; gap:10px;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+    @media (max-width: 900px){
+      .stat-grid{ grid-template-columns: 1fr; }
+    }
+    .stat-op{ margin-bottom:12px; }
+    .stat-title{ font-weight:800; margin-bottom:6px; }
+    .stat-list{
+      margin:0; padding-left:18px; font-size:12px; color:var(--muted);
+    }
+    .stat-list li{ margin-bottom:4px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row" style="justify-content:space-between;">
+      <h1>내 기록</h1>
+      <div class="row">
+        <a class="btn secondary" href="index.html">돌아가기</a>
+        <button id="logoutBtn" class="btn secondary" type="button" disabled>로그아웃</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="small" id="authStatus">로그인 상태를 확인하는 중입니다.</div>
+      <div class="small" id="statsEmpty" style="margin-top:8px;">로그인 후 내 기록을 볼 수 있습니다.</div>
+      <div id="statsBox" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyA_UHGO2HW07NLlNlKyejzHOpCZPwm30TA",
+      authDomain: "math-sprint-9c129.firebaseapp.com",
+      projectId: "math-sprint-9c129",
+      storageBucket: "math-sprint-9c129.firebasestorage.app",
+      messagingSenderId: "358959824417",
+      appId: "1:358959824417:web:21c328839c758c77b16d60",
+      measurementId: "G-WTT3YC0BTW"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    const authStatus = document.getElementById("authStatus");
+    const statsEmpty = document.getElementById("statsEmpty");
+    const statsBox = document.getElementById("statsBox");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    function opLabel(op){
+      return op === "add" ? "덧셈" : op === "sub" ? "뺄셈" : op === "mul" ? "곱셈" : "나눗셈";
+    }
+    function loadStats(uid){
+      try{
+        const raw = localStorage.getItem(`ms_stats_${uid}`);
+        return raw ? JSON.parse(raw) : {};
+      } catch(e){
+        return {};
+      }
+    }
+    function renderStats(uid){
+      if(!uid){
+        statsBox.innerHTML = "";
+        statsEmpty.style.display = "block";
+        return;
+      }
+      const data = loadStats(uid);
+      const ops = ["add", "sub", "mul", "div"];
+      let html = "";
+      ops.forEach(op => {
+        const opData = data[op] || { wrong: [], slow: [] };
+        const wrong = opData.wrong.slice().reverse();
+        const slow = opData.slow.slice().reverse();
+        html += `<div class="stat-op">`;
+        html += `<div class="stat-title">${opLabel(op)}</div>`;
+        html += `<div class="stat-grid">`;
+        html += `<div><div class="small" style="font-weight:700;">틀린문제</div><ul class="stat-list">`;
+        if(wrong.length === 0){
+          html += `<li>기록 없음</li>`;
+        } else {
+          wrong.forEach(e => {
+            const ua = e.userAnswer === null || e.userAnswer === undefined ? "—" : e.userAnswer;
+            html += `<li>${e.problem} = ${e.answer} (내 답: ${ua}) · ${e.time.toFixed(1)}초 · ${e.level}</li>`;
+          });
+        }
+        html += `</ul></div>`;
+        html += `<div><div class="small" style="font-weight:700;">시간이 오래걸린 문제</div><ul class="stat-list">`;
+        if(slow.length === 0){
+          html += `<li>기록 없음</li>`;
+        } else {
+          slow.forEach(e => {
+            const tag = e.result === "correct" ? "정답" : e.result === "timeout" ? "시간초과" : e.result === "skip" ? "넘김" : "오답";
+            html += `<li>${e.problem} · ${e.time.toFixed(1)}초 (${tag}) · ${e.level}</li>`;
+          });
+        }
+        html += `</ul></div>`;
+        html += `</div></div>`;
+      });
+      statsBox.innerHTML = html;
+      statsEmpty.style.display = "none";
+    }
+
+    logoutBtn.addEventListener("click", async () => {
+      await auth.signOut();
+    });
+
+    auth.onAuthStateChanged((user) => {
+      if(user){
+        const label = user.displayName || user.email || "로그인됨";
+        authStatus.textContent = `로그인됨: ${label}`;
+        logoutBtn.disabled = false;
+        renderStats(user.uid);
+      } else {
+        authStatus.textContent = "로그인하지 않으면 기록을 볼 수 없습니다.";
+        logoutBtn.disabled = true;
+        renderStats(null);
+      }
+    });
+  </script>
+</body>
+</html>
