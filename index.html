@@ -141,27 +141,6 @@
       border-radius:10px; background:#fff;
     }
     input[type="checkbox"]{ width:18px; height:18px; }
-    .tabs{
-      display:flex; gap:8px; align-items:center;
-      border-bottom:1px solid var(--line);
-      padding-bottom:8px; margin-bottom:10px;
-    }
-    .tab{
-      padding:8px 12px; border-radius:999px;
-      border:1px solid var(--line); background:#fff;
-      font-size:13px; cursor:pointer;
-    }
-    .tab.active{
-      background:var(--btn); color:var(--btnfg); border-color:var(--btn);
-      font-weight:700;
-    }
-    .auth-grid{
-      display:grid; gap:10px;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-    }
-    @media (max-width: 700px){
-      .auth-grid{ grid-template-columns: 1fr; }
-    }
     .auth-note{
       font-size:12px; color:var(--muted);
     }
@@ -176,28 +155,13 @@
     <h1>수능 기초 체력 훈련</h1>
 
     <div class="card" id="authCard">
-      <div class="tabs">
-        <button class="tab active" id="tabLogin" type="button">로그인</button>
-        <button class="tab" id="tabRegister" type="button">회원가입</button>
-      </div>
-
-      <div class="auth-grid">
-        <div>
-          <label>아이디</label><br/>
-          <input id="authId" type="text" autocomplete="username" placeholder="아이디" />
-        </div>
-        <div>
-          <label>비밀번호</label><br/>
-          <input id="authPw" type="password" autocomplete="current-password" placeholder="비밀번호" />
-        </div>
-      </div>
-
+      <div style="font-weight:800; margin-bottom:6px;">로그인</div>
       <div class="row" style="margin-top:10px;">
-        <button id="authAction" class="btn">로그인</button>
+        <button id="googleLoginBtn" class="btn">Google로 로그인</button>
         <button id="logoutBtn" class="btn secondary" disabled>로그아웃</button>
         <div class="auth-note" id="authStatus">로그인하지 않으면 게임을 사용할 수 없습니다.</div>
       </div>
-      <div class="auth-note">※ 데모용 로컬 저장 방식입니다. 보안이 적용되지 않습니다.</div>
+      <div class="auth-note">※ Google 계정으로 로그인합니다.</div>
     </div>
 
     <div class="grid">
@@ -327,6 +291,8 @@
     </div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script>
     // ====== Difficulty ladders (as requested) ======
     const ladders = {
@@ -356,11 +322,7 @@
     };
 
     // ====== DOM ======
-    const tabLogin = document.getElementById("tabLogin");
-    const tabRegister = document.getElementById("tabRegister");
-    const authId = document.getElementById("authId");
-    const authPw = document.getElementById("authPw");
-    const authAction = document.getElementById("authAction");
+    const googleLoginBtn = document.getElementById("googleLoginBtn");
     const logoutBtn = document.getElementById("logoutBtn");
     const authStatus = document.getElementById("authStatus");
     const lockNote = document.getElementById("lockNote");
@@ -393,7 +355,6 @@
     let running = false;
     let current = null; // {a,b,op,answer,shownText}
     let okCnt = 0, badCnt = 0;
-    let authMode = "login"; // "login" | "register"
     let isLocked = true;
 
     let setTimer = null, qTimer = null;
@@ -470,42 +431,6 @@
       }
     }
 
-    function loadUsers(){
-      try{
-        const raw = localStorage.getItem("ms_users");
-        return raw ? JSON.parse(raw) : {};
-      } catch(e){
-        return {};
-      }
-    }
-    function saveUsers(users){
-      localStorage.setItem("ms_users", JSON.stringify(users));
-    }
-    function getCurrentUser(){
-      return localStorage.getItem("ms_current_user");
-    }
-    function setCurrentUser(id){
-      if(id){
-        localStorage.setItem("ms_current_user", id);
-      } else {
-        localStorage.removeItem("ms_current_user");
-      }
-    }
-    function setAuthMode(mode){
-      authMode = mode;
-      if(mode === "login"){
-        tabLogin.classList.add("active");
-        tabRegister.classList.remove("active");
-        authAction.textContent = "로그인";
-        authPw.autocomplete = "current-password";
-      } else {
-        tabRegister.classList.add("active");
-        tabLogin.classList.remove("active");
-        authAction.textContent = "회원가입";
-        authPw.autocomplete = "new-password";
-      }
-      authStatus.textContent = "로그인하지 않으면 게임을 사용할 수 없습니다.";
-    }
     function setGameLocked(locked){
       isLocked = locked;
       lockNote.style.display = locked ? "block" : "none";
@@ -518,21 +443,17 @@
       setUIRunning(false);
     }
 
-    function updateAuthUI(){
-      const user = getCurrentUser();
+    function updateAuthUI(user){
       if(user){
-        authStatus.textContent = `로그인됨: ${user}`;
+        const label = user.displayName || user.email || "로그인됨";
+        authStatus.textContent = `로그인됨: ${label}`;
         logoutBtn.disabled = false;
-        authAction.disabled = true;
-        authId.disabled = true;
-        authPw.disabled = true;
+        googleLoginBtn.disabled = true;
         setGameLocked(false);
       } else {
         authStatus.textContent = "로그인하지 않으면 게임을 사용할 수 없습니다.";
         logoutBtn.disabled = true;
-        authAction.disabled = false;
-        authId.disabled = false;
-        authPw.disabled = false;
+        googleLoginBtn.disabled = false;
         setGameLocked(true);
       }
     }
@@ -754,56 +675,43 @@
       updateRuleUI();
     }
 
+    // ====== Firebase Auth (Google) ======
+    const firebaseConfig = {
+      apiKey: "AIzaSyA_UHGO2HW07NLlNlKyejzHOpCZPwm30TA",
+      authDomain: "math-sprint-9c129.firebaseapp.com",
+      projectId: "math-sprint-9c129",
+      storageBucket: "math-sprint-9c129.firebasestorage.app",
+      messagingSenderId: "358959824417",
+      appId: "1:358959824417:web:21c328839c758c77b16d60",
+      measurementId: "G-WTT3YC0BTW"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    function isMobile(){
+      return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    }
+
     // ====== Events ======
-    tabLogin.addEventListener("click", () => {
-      if(authMode !== "login") setAuthMode("login");
-    });
-    tabRegister.addEventListener("click", () => {
-      if(authMode !== "register") setAuthMode("register");
-    });
-
-    authAction.addEventListener("click", () => {
-      const id = authId.value.trim();
-      const pw = authPw.value;
-      if(id.length < 2 || pw.length < 2){
-        authStatus.textContent = "아이디/비밀번호는 2자 이상 입력하세요.";
-        return;
-      }
-      const users = loadUsers();
-      if(authMode === "login"){
-        if(!users[id] || users[id].pw !== pw){
-          authStatus.textContent = "아이디 또는 비밀번호가 올바르지 않습니다.";
-          return;
+    googleLoginBtn.addEventListener("click", async () => {
+      try{
+        if(isMobile()){
+          await auth.signInWithRedirect(provider);
+        } else {
+          await auth.signInWithPopup(provider);
         }
-        setCurrentUser(id);
-        authPw.value = "";
-        updateAuthUI();
-      } else {
-        if(users[id]){
-          authStatus.textContent = "이미 존재하는 아이디입니다.";
-          return;
-        }
-        users[id] = { pw };
-        saveUsers(users);
-        setCurrentUser(id);
-        authPw.value = "";
-        updateAuthUI();
+      } catch(e){
+        authStatus.textContent = "로그인 중 오류가 발생했습니다.";
       }
     });
 
-    [authId, authPw].forEach(el => {
-      el.addEventListener("keydown", (e) => {
-        if(e.key === "Enter" && !authAction.disabled){
-          e.preventDefault();
-          authAction.click();
-        }
-      });
+    logoutBtn.addEventListener("click", async () => {
+      await auth.signOut();
     });
 
-    logoutBtn.addEventListener("click", () => {
-      setCurrentUser(null);
-      authPw.value = "";
-      updateAuthUI();
+    auth.onAuthStateChanged((user) => {
+      updateAuthUI(user);
     });
 
     opSelect.addEventListener("change", () => {
@@ -881,8 +789,6 @@
     // init
     populateLevelOptions();
     updateSettingUI();
-    setAuthMode("login");
-    updateAuthUI();
     setIdleProblem();
   </script>
 </body>
