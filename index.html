@@ -584,6 +584,7 @@
         level: entry.level,
         problem: entry.problem,
         answer: entry.answer,
+        limit: entry.limit,
         reasons: { wrong: false, slow: false },
         stage: 0,
         nextAt: now,
@@ -591,6 +592,7 @@
         lastTime: entry.time,
         lastTs: entry.ts
       };
+      item.limit = entry.limit;
       item.reasons.wrong = item.reasons.wrong || !!reason.wrong;
       item.reasons.slow = item.reasons.slow || !!reason.slow;
       item.stage = 0;

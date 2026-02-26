@@ -184,6 +184,8 @@
     let practiceQueue = [];
     let currentWeak = null;
     let selectedWeak = new Set();
+    let practiceTimer = null;
+    let practiceEndAt = null;
 
     function opLabel(op){
       return op === "add" ? "덧셈" : op === "sub" ? "뺄셈" : op === "mul" ? "곱셈" : "나눗셈";
@@ -305,6 +307,7 @@
       return due;
     }
     function showPracticeIdle(msg){
+      clearPracticeTimer();
       practiceBox.style.display = "block";
       practiceProblem.textContent = "—";
       practiceStatus.className = "status";
@@ -323,9 +326,11 @@
       practiceInput.focus();
       practiceStatus.className = "status";
       practiceStatus.textContent = "";
-      practiceMeta.textContent = `단원: ${opLabel(currentWeak.op)} · 난이도: ${currentWeak.level}`;
+      const limit = typeof currentWeak.limit === "number" ? currentWeak.limit : 3.0;
+      practiceMeta.textContent = `단원: ${opLabel(currentWeak.op)} · 난이도: ${currentWeak.level} · 제한 ${limit.toFixed(1)}초`;
       practiceSubmit.disabled = false;
       practiceNext.disabled = true;
+      startPracticeTimer(limit);
     }
     function advanceWeak(item, correct){
       const data = loadWeak(currentUserId);
@@ -353,6 +358,30 @@
       renderCurrentWeak();
     }
 
+    function clearPracticeTimer(){
+      if(practiceTimer){ clearInterval(practiceTimer); practiceTimer = null; }
+      practiceEndAt = null;
+    }
+    function startPracticeTimer(limitSec){
+      clearPracticeTimer();
+      practiceEndAt = Date.now() + limitSec * 1000;
+      practiceTimer = setInterval(() => {
+        const leftMs = practiceEndAt - Date.now();
+        if(leftMs <= 0){
+          clearPracticeTimer();
+          if(currentWeak){
+            practiceStatus.className = "status bad";
+            practiceStatus.textContent = `시간초과! 정답은 ${currentWeak.answer}`;
+            advanceWeak(currentWeak, false);
+            practiceSubmit.disabled = true;
+            practiceNext.disabled = false;
+            renderStats(currentUserId);
+            renderWeakList(currentUserId);
+          }
+        }
+      }, 120);
+    }
+
     logoutBtn.addEventListener("click", async () => {
       await auth.signOut();
     });
@@ -378,6 +407,7 @@
       if(raw === "") return;
       const userAns = parseInt(raw, 10);
       if(Number.isNaN(userAns)) return;
+      clearPracticeTimer();
       const isCorrect = userAns === currentWeak.answer;
       if(isCorrect){
         practiceStatus.className = "status ok";
@@ -394,6 +424,7 @@
     });
 
     practiceNext.addEventListener("click", () => {
+      clearPracticeTimer();
       if(practiceQueue.length === 0){
         currentWeak = null;
         showPracticeIdle("오늘 풀 문제가 없습니다.");
