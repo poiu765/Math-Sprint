@@ -88,6 +88,11 @@
       letter-spacing:.5px;
       user-select:none;
     }
+    .problem .btn{
+      font-size:20px;
+      padding:12px 20px;
+      border-radius:12px;
+    }
     .answerRow{
       display:flex; gap:10px; margin-top:10px; align-items:stretch;
     }
@@ -258,7 +263,9 @@
         </div>
 
         <div style="margin-top:12px;">
-          <div class="problem" id="problemBox">시작을 누르세요</div>
+          <div class="problem" id="problemBox">
+            <button id="problemStartBtn" class="btn" type="button">시작</button>
+          </div>
           <div id="lockNote" class="lock-note" style="display:none;">로그인 후 사용할 수 있습니다.</div>
 
           <div class="answerRow">
@@ -507,9 +514,7 @@
         if(running) endRun("로그인이 필요합니다.");
         problemBox.textContent = "로그인 후 시작하세요";
       } else {
-        if(problemBox.textContent === "로그인 후 시작하세요"){
-          problemBox.textContent = "시작을 누르세요";
-        }
+        setIdleProblem();
       }
       setUIRunning(false);
     }
@@ -531,6 +536,16 @@
         authPw.disabled = false;
         setGameLocked(true);
       }
+    }
+
+    function setIdleProblem(){
+      if(isLocked) return;
+      problemBox.innerHTML = '<button id="problemStartBtn" class="btn" type="button">시작</button>';
+      const btn = document.getElementById("problemStartBtn");
+      btn.addEventListener("click", () => {
+        if(isLocked || running) return;
+        startBtn.click();
+      });
     }
 
     function clearTimers(){
@@ -702,7 +717,7 @@
       setUIRunning(false);
       running = false;
       clearTimers();
-      problemBox.textContent = "시작을 누르세요";
+      setIdleProblem();
       statusEl.className = "status";
       statusEl.textContent = msg || "";
       answerInput.value = "";
@@ -869,6 +884,7 @@
     updateSettingUI();
     setAuthMode("login");
     updateAuthUI();
+    setIdleProblem();
   </script>
 </body>
 </html>
