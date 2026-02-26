@@ -101,6 +101,17 @@
       margin:0; padding-left:18px; font-size:12px; color:var(--muted);
     }
     .stat-list li{ margin-bottom:4px; }
+    .admin-grid{
+      display:grid; gap:10px;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+    @media (max-width: 900px){
+      .admin-grid{ grid-template-columns: 1fr; }
+    }
+    .admin-list{
+      margin:0; padding-left:18px; font-size:12px; color:var(--muted);
+    }
+    .admin-list li{ margin-bottom:4px; }
   </style>
 </head>
 <body>
@@ -147,10 +158,17 @@
       <div class="small" id="weakEmpty" style="margin-top:6px;">삭제할 약점이 없습니다.</div>
       <ul class="weak-list" id="weakList" style="margin-top:8px;"></ul>
     </div>
+
+    <div class="card" id="adminCard" style="display:none;">
+      <div style="font-weight:800;">전체 데이터 (관리자 전용)</div>
+      <div class="small" id="adminStatus" style="margin-top:6px;">데이터를 불러오는 중입니다.</div>
+      <div id="adminBox" style="margin-top:8px;"></div>
+    </div>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyA_UHGO2HW07NLlNlKyejzHOpCZPwm30TA",
@@ -163,6 +181,8 @@
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
+    const db = firebase.firestore();
+    const ADMIN_EMAIL = "ghdwogus1284@gmail.com";
 
     const authStatus = document.getElementById("authStatus");
     const statsEmpty = document.getElementById("statsEmpty");
@@ -179,6 +199,9 @@
     const weakDeleteBtn = document.getElementById("weakDeleteBtn");
     const weakEmpty = document.getElementById("weakEmpty");
     const weakList = document.getElementById("weakList");
+    const adminCard = document.getElementById("adminCard");
+    const adminStatus = document.getElementById("adminStatus");
+    const adminBox = document.getElementById("adminBox");
 
     let currentUserId = null;
     let practiceQueue = [];
@@ -249,6 +272,57 @@
       });
       statsBox.innerHTML = html;
       statsEmpty.style.display = "none";
+    }
+
+    async function renderAdminStats(){
+      adminStatus.textContent = "데이터를 불러오는 중입니다.";
+      adminBox.innerHTML = "";
+      try{
+        const snap = await db.collection("attempts")
+          .orderBy("clientTs", "desc")
+          .limit(2000)
+          .get();
+        const agg = {};
+        snap.forEach(doc => {
+          const d = doc.data();
+          const op = d.op || "add";
+          const key = `${d.problem} = ${d.answer}`;
+          if(!agg[op]) agg[op] = {};
+          if(!agg[op][key]) agg[op][key] = { correct:0, total:0, timeSum:0 };
+          const row = agg[op][key];
+          row.total += 1;
+          if(d.result === "correct") row.correct += 1;
+          row.timeSum += (typeof d.time === "number" ? d.time : 0);
+        });
+
+        const ops = ["add", "sub", "mul", "div"];
+        let html = "";
+        ops.forEach(op => {
+          const opData = agg[op] || {};
+          const entries = Object.entries(opData);
+          if(entries.length === 0) return;
+          html += `<div class="stat-op">`;
+          html += `<div class="stat-title">${opLabel(op)}</div>`;
+          html += `<div class="admin-grid">`;
+          html += `<div><div class="small" style="font-weight:700;">문제별 정답률</div><ul class="admin-list">`;
+          entries.forEach(([key, row]) => {
+            const acc = row.total ? (row.correct / row.total * 100) : 0;
+            html += `<li>${key} · ${acc.toFixed(1)}% (${row.correct}/${row.total})</li>`;
+          });
+          html += `</ul></div>`;
+          html += `<div><div class="small" style="font-weight:700;">문제별 풀이시간(평균)</div><ul class="admin-list">`;
+          entries.forEach(([key, row]) => {
+            const avg = row.total ? (row.timeSum / row.total) : 0;
+            html += `<li>${key} · ${avg.toFixed(1)}초</li>`;
+          });
+          html += `</ul></div>`;
+          html += `</div></div>`;
+        });
+        adminBox.innerHTML = html || "<div class=\"small\">데이터가 없습니다.</div>";
+        adminStatus.textContent = "";
+      } catch(e){
+        adminStatus.textContent = "데이터를 불러오지 못했습니다.";
+      }
     }
 
     function formatDate(ts){
@@ -475,6 +549,12 @@
         renderStats(user.uid);
         renderWeakList(user.uid);
         showPracticeIdle("약점 연습을 시작하세요.");
+        if(user.email === ADMIN_EMAIL){
+          adminCard.style.display = "block";
+          renderAdminStats();
+        } else {
+          adminCard.style.display = "none";
+        }
       } else {
         authStatus.textContent = "로그인하지 않으면 기록을 볼 수 없습니다.";
         logoutBtn.disabled = true;
@@ -482,6 +562,7 @@
         renderStats(null);
         renderWeakList(null);
         showPracticeIdle("로그인 후 약점 연습을 사용할 수 있습니다.");
+        adminCard.style.display = "none";
       }
     });
   </script>

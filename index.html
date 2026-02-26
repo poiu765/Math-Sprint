@@ -296,6 +296,7 @@
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script>
     // ====== Difficulty ladders (as requested) ======
     const ladders = {
@@ -361,6 +362,7 @@
     let isLocked = true;
     let qStartAt = null;
     let currentUserId = null;
+    let currentUserEmail = null;
 
     let setTimer = null, qTimer = null;
     let setEndAt = null, qEndAt = null;
@@ -560,6 +562,23 @@
     function saveStats(uid, data){
       localStorage.setItem(`ms_stats_${uid}`, JSON.stringify(data));
     }
+    function saveAttempt(entry){
+      if(!currentUserId) return;
+      db.collection("attempts").add({
+        uid: currentUserId,
+        email: currentUserEmail || null,
+        op: entry.op,
+        level: entry.level,
+        problem: entry.problem,
+        answer: entry.answer,
+        userAnswer: entry.userAnswer === undefined ? null : entry.userAnswer,
+        result: entry.result,
+        time: entry.time,
+        limit: entry.limit,
+        clientTs: entry.ts,
+        serverTs: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch(() => {});
+    }
     function loadWeak(uid){
       try{
         const raw = localStorage.getItem(`ms_weak_${uid}`);
@@ -637,6 +656,7 @@
       if(reason.wrong || reason.slow){
         upsertWeakness(entry, reason);
       }
+      saveAttempt(entry);
     }
 
     function genProblem(){
@@ -802,6 +822,7 @@
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
+    const db = firebase.firestore();
     const provider = new firebase.auth.GoogleAuthProvider();
 
     function isMobile(){
@@ -827,6 +848,7 @@
 
     auth.onAuthStateChanged((user) => {
       currentUserId = user ? user.uid : null;
+      currentUserEmail = user ? user.email : null;
       updateAuthUI(user);
     });
 
