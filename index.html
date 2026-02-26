@@ -1102,6 +1102,7 @@
 
     googleLoginBtn.addEventListener("click", async () => {
       try{
+        await authReady;
         if(isMobile()){
           await auth.signInWithRedirect(provider);
         } else {
