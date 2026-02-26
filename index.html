@@ -197,6 +197,7 @@
         <button id="googleLoginBtn" class="btn">Google로 로그인</button>
         <button id="logoutBtn" class="btn secondary" disabled>로그아웃</button>
         <div class="auth-note" id="authStatus">로그인하지 않으면 게임을 사용할 수 없습니다.</div>
+        <div class="auth-note" id="nicknameDisplay"></div>
       </div>
       <div class="auth-note">※ Google 계정으로 로그인합니다.</div>
       <div class="row" style="margin-top:10px;">
@@ -375,6 +376,7 @@
     const logoutBtn = document.getElementById("logoutBtn");
     const authStatus = document.getElementById("authStatus");
     const lockNote = document.getElementById("lockNote");
+    const nicknameDisplay = document.getElementById("nicknameDisplay");
     const nicknameInput = document.getElementById("nicknameInput");
     const nicknameSaveBtn = document.getElementById("nicknameSaveBtn");
     const nicknameStatus = document.getElementById("nicknameStatus");
@@ -534,11 +536,13 @@
       if(user){
         const label = user.displayName || user.email || "로그인됨";
         authStatus.textContent = `로그인됨: ${label}`;
+        nicknameDisplay.textContent = currentNickname ? `닉네임: ${currentNickname}` : "";
         logoutBtn.disabled = false;
         googleLoginBtn.disabled = true;
         setGameLocked(false);
       } else {
         authStatus.textContent = "로그인하지 않으면 게임을 사용할 수 없습니다.";
+        nicknameDisplay.textContent = "";
         logoutBtn.disabled = true;
         googleLoginBtn.disabled = false;
         setGameLocked(true);
@@ -1218,4 +1222,3 @@
     perQSec.disabled = !usePerQ.checked;
   </script>
 </body>
-</html>
