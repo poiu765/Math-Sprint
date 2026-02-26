@@ -167,6 +167,12 @@
       font-size:0.95em;
     }
     .help{ font-size:12px; color:var(--muted); margin-top:8px; }
+    .brand{
+      display:flex; align-items:center; gap:10px;
+    }
+    .brand img{
+      height:32px; width:auto; display:block;
+    }
     .hr{ height:1px; background:var(--line); margin:12px 0; }
     .small{ font-size:12px; color:var(--muted); }
     .toggle{
@@ -187,7 +193,10 @@
 <body>
   <div class="wrap">
     <div class="row" style="justify-content:space-between; align-items:center;">
-      <h1 style="margin:0;">수학 기초 훈련</h1>
+      <div class="brand">
+        <img src="logo.png" alt="로고" />
+        <h1 style="margin:0;">수학 기초 훈련</h1>
+      </div>
       <a href="stats.html" class="btn secondary">약점 확인</a>
     </div>
 
@@ -1113,3 +1122,4 @@
     perQSec.disabled = !usePerQ.checked;
   </script>
 </body>
+</html>
