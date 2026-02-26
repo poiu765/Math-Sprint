@@ -101,6 +101,10 @@
       margin:0; padding-left:18px; font-size:12px; color:var(--muted);
     }
     .stat-list li{ margin-bottom:4px; }
+    .select{
+      padding:8px 10px; border:1px solid var(--line);
+      border-radius:10px; background:#fff; font-size:14px;
+    }
     .admin-grid{
       display:grid; gap:10px;
       grid-template-columns: repeat(2, minmax(0,1fr));
@@ -127,6 +131,18 @@
     <div class="card">
       <div class="small" id="authStatus">로그인 상태를 확인하는 중입니다.</div>
       <div class="small" id="statsEmpty" style="margin-top:8px;">로그인 후 내 기록을 볼 수 있습니다.</div>
+      <div class="row" style="margin-top:8px;">
+        <select id="filterOp" class="select">
+          <option value="">단원 선택</option>
+          <option value="add">덧셈</option>
+          <option value="sub">뺄셈</option>
+          <option value="mul">곱셈</option>
+          <option value="div">나눗셈</option>
+        </select>
+        <select id="filterLevel" class="select" disabled>
+          <option value="">난이도 선택</option>
+        </select>
+      </div>
       <div id="statsBox" style="margin-top:8px;"></div>
 
       <div class="hr"></div>
@@ -187,6 +203,8 @@
     const authStatus = document.getElementById("authStatus");
     const statsEmpty = document.getElementById("statsEmpty");
     const statsBox = document.getElementById("statsBox");
+    const filterOp = document.getElementById("filterOp");
+    const filterLevel = document.getElementById("filterLevel");
     const logoutBtn = document.getElementById("logoutBtn");
     const practiceBtn = document.getElementById("practiceBtn");
     const practiceBox = document.getElementById("practiceBox");
@@ -213,6 +231,12 @@
     function opLabel(op){
       return op === "add" ? "덧셈" : op === "sub" ? "뺄셈" : op === "mul" ? "곱셈" : "나눗셈";
     }
+    const levelMap = {
+      add: ["(두자리,한자리)", "(두자리,두자리)", "(세자리,두자리)", "(세자리,세자리)"],
+      sub: ["(두자리,한자리)", "(두자리,두자리)", "(세자리,두자리)", "(세자리,세자리)"],
+      mul: ["(한자리,한자리)", "(두자리,한자리)", "(두자리,두자리)"],
+      div: ["(두자리,한자리)", "(두자리,두자리)", "(세자리,한자리)", "(세자리,두자리)"]
+    };
     function loadStats(uid){
       try{
         const raw = localStorage.getItem(`ms_stats_${uid}`);
@@ -238,38 +262,43 @@
         statsEmpty.style.display = "block";
         return;
       }
+      const op = filterOp.value;
+      const lvl = filterLevel.value;
+      if(!op || !lvl){
+        statsBox.innerHTML = "";
+        statsEmpty.style.display = "block";
+        statsEmpty.textContent = "단원과 난이도를 선택해야 약점을 확인할 수 있습니다.";
+        return;
+      }
       const data = loadStats(uid);
-      const ops = ["add", "sub", "mul", "div"];
       let html = "";
-      ops.forEach(op => {
-        const opData = data[op] || { wrong: [], slow: [] };
-        const wrong = opData.wrong.slice().reverse();
-        const slow = opData.slow.slice().reverse();
-        html += `<div class="stat-op">`;
-        html += `<div class="stat-title">${opLabel(op)}</div>`;
-        html += `<div class="stat-grid">`;
-        html += `<div><div class="small" style="font-weight:700;">틀린문제</div><ul class="stat-list">`;
-        if(wrong.length === 0){
-          html += `<li>기록 없음</li>`;
-        } else {
-          wrong.forEach(e => {
-            const ua = e.userAnswer === null || e.userAnswer === undefined ? "—" : e.userAnswer;
-            html += `<li>${e.problem} = ${e.answer} (내 답: ${ua}) · ${e.time.toFixed(1)}초 · ${e.level}</li>`;
-          });
-        }
-        html += `</ul></div>`;
-        html += `<div><div class="small" style="font-weight:700;">시간이 오래걸린 문제</div><ul class="stat-list">`;
-        if(slow.length === 0){
-          html += `<li>기록 없음</li>`;
-        } else {
-          slow.forEach(e => {
-            const tag = e.result === "correct" ? "정답" : e.result === "timeout" ? "시간초과" : e.result === "skip" ? "넘김" : "오답";
-            html += `<li>${e.problem} · ${e.time.toFixed(1)}초 (${tag}) · ${e.level}</li>`;
-          });
-        }
-        html += `</ul></div>`;
-        html += `</div></div>`;
-      });
+      const opData = data[op] || { wrong: [], slow: [] };
+      const wrong = opData.wrong.filter(e => e.level === lvl).slice().reverse();
+      const slow = opData.slow.filter(e => e.level === lvl).slice().reverse();
+      html += `<div class="stat-op">`;
+      html += `<div class="stat-title">${opLabel(op)} · ${lvl}</div>`;
+      html += `<div class="stat-grid">`;
+      html += `<div><div class="small" style="font-weight:700;">틀린문제</div><ul class="stat-list">`;
+      if(wrong.length === 0){
+        html += `<li>기록 없음</li>`;
+      } else {
+        wrong.forEach(e => {
+          const ua = e.userAnswer === null || e.userAnswer === undefined ? "—" : e.userAnswer;
+          html += `<li>${e.problem} = ${e.answer} (내 답: ${ua}) · ${e.time.toFixed(1)}초</li>`;
+        });
+      }
+      html += `</ul></div>`;
+      html += `<div><div class="small" style="font-weight:700;">시간이 오래걸린 문제</div><ul class="stat-list">`;
+      if(slow.length === 0){
+        html += `<li>기록 없음</li>`;
+      } else {
+        slow.forEach(e => {
+          const tag = e.result === "correct" ? "정답" : e.result === "timeout" ? "시간초과" : "오답";
+          html += `<li>${e.problem} · ${e.time.toFixed(1)}초 (${tag})</li>`;
+        });
+      }
+      html += `</ul></div>`;
+      html += `</div></div>`;
       statsBox.innerHTML = html;
       statsEmpty.style.display = "none";
     }
@@ -515,6 +544,29 @@
       }
     });
 
+    function populateLevelOptions(){
+      const op = filterOp.value;
+      filterLevel.innerHTML = "<option value=\"\">난이도 선택</option>";
+      if(!op){
+        filterLevel.disabled = true;
+        return;
+      }
+      (levelMap[op] || []).forEach(name => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        filterLevel.appendChild(opt);
+      });
+      filterLevel.disabled = false;
+    }
+    filterOp.addEventListener("change", () => {
+      populateLevelOptions();
+      renderStats(currentUserId);
+    });
+    filterLevel.addEventListener("change", () => {
+      renderStats(currentUserId);
+    });
+
     weakList.addEventListener("change", (e) => {
       const target = e.target;
       if(!target.classList.contains("weak-check")) return;
@@ -549,6 +601,7 @@
         renderStats(user.uid);
         renderWeakList(user.uid);
         showPracticeIdle("약점 연습을 시작하세요.");
+        populateLevelOptions();
         if(user.email === ADMIN_EMAIL){
           adminCard.style.display = "block";
           renderAdminStats();
