@@ -949,6 +949,17 @@
       nextProblem();
     }
 
+    function autoSubmitIfCorrect(){
+      if(!running || !current || current.isChoice) return;
+      const raw = answerInput.value.trim();
+      if(raw === "") return;
+      const userAns = parseInt(raw, 10);
+      if(Number.isNaN(userAns)) return;
+      if(userAns === current.answer){
+        submitAnswer();
+      }
+    }
+
     // ====== UI init ======
     function populateLevelOptions(){
       levelSelect.innerHTML = "";
@@ -1060,6 +1071,7 @@
     });
 
     submitBtn.addEventListener("click", submitAnswer);
+    answerInput.addEventListener("input", autoSubmitIfCorrect);
 
     // keyboard shortcuts
     document.addEventListener("keydown", (e) => {
