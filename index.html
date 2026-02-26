@@ -199,6 +199,14 @@
         <div class="auth-note" id="authStatus">로그인하지 않으면 게임을 사용할 수 없습니다.</div>
       </div>
       <div class="auth-note">※ Google 계정으로 로그인합니다.</div>
+      <div class="row" style="margin-top:10px;">
+        <div style="min-width:140px;">
+          <label>닉네임</label><br/>
+          <input id="nicknameInput" type="text" placeholder="2~12자" />
+        </div>
+        <button id="nicknameSaveBtn" class="btn secondary" type="button" disabled>저장</button>
+        <div class="auth-note" id="nicknameStatus"></div>
+      </div>
     </div>
 
     <div class="grid">
@@ -367,6 +375,9 @@
     const logoutBtn = document.getElementById("logoutBtn");
     const authStatus = document.getElementById("authStatus");
     const lockNote = document.getElementById("lockNote");
+    const nicknameInput = document.getElementById("nicknameInput");
+    const nicknameSaveBtn = document.getElementById("nicknameSaveBtn");
+    const nicknameStatus = document.getElementById("nicknameStatus");
 
     const opSelect = document.getElementById("opSelect");
     const levelSelect = document.getElementById("levelSelect");
@@ -402,6 +413,7 @@
     let qStartAt = null;
     let currentUserId = null;
     let currentUserEmail = null;
+    let currentNickname = null;
 
     let setTimer = null, qTimer = null;
     let setEndAt = null, qEndAt = null;
@@ -635,6 +647,7 @@
       db.collection("attempts").add({
         uid: currentUserId,
         email: currentUserEmail || null,
+        nickname: currentNickname || null,
         op: entry.op,
         level: entry.level,
         problem: entry.problem,
@@ -670,6 +683,85 @@
         }
       });
       if(changed) saveWeak(currentUserId, data);
+    }
+
+    function normalizeNickname(raw){
+      return raw.trim().replace(/\s+/g, "");
+    }
+    function isValidNickname(nick){
+      if(nick.length < 2 || nick.length > 12) return false;
+      return /^[A-Za-z0-9가-힣_]+$/.test(nick);
+    }
+    async function loadNickname(uid){
+      try{
+        const doc = await db.collection("users").doc(uid).get();
+        if(doc.exists && doc.data().nickname){
+          currentNickname = doc.data().nickname;
+        } else {
+          currentNickname = null;
+        }
+      } catch(e){
+        currentNickname = null;
+      }
+      updateNicknameUI();
+    }
+    function updateNicknameUI(){
+      if(!currentUserId){
+        nicknameInput.value = "";
+        nicknameInput.disabled = true;
+        nicknameSaveBtn.disabled = true;
+        nicknameStatus.textContent = "";
+        return;
+      }
+      nicknameInput.disabled = false;
+      nicknameSaveBtn.disabled = false;
+      if(currentNickname){
+        nicknameInput.value = currentNickname;
+        nicknameStatus.textContent = `현재 닉네임: ${currentNickname}`;
+      } else {
+        nicknameInput.value = "";
+        nicknameStatus.textContent = "닉네임을 설정해 주세요.";
+      }
+    }
+    async function saveNickname(){
+      if(!currentUserId) return;
+      const raw = nicknameInput.value;
+      const nick = normalizeNickname(raw);
+      if(!isValidNickname(nick)){
+        nicknameStatus.textContent = "닉네임은 2~12자, 한글/영문/숫자/밑줄만 가능합니다.";
+        return;
+      }
+      if(currentNickname === nick){
+        nicknameStatus.textContent = "이미 사용 중인 닉네임입니다.";
+        return;
+      }
+      nicknameStatus.textContent = "저장 중...";
+      const nickKey = nick.toLowerCase();
+      const nickRef = db.collection("nicknames").doc(nickKey);
+      const userRef = db.collection("users").doc(currentUserId);
+      try{
+        await db.runTransaction(async (tx) => {
+          const nickSnap = await tx.get(nickRef);
+          if(nickSnap.exists && nickSnap.data().uid !== currentUserId){
+            throw new Error("taken");
+          }
+          tx.set(nickRef, {
+            uid: currentUserId,
+            nickname: nick,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          tx.set(userRef, {
+            nickname: nick,
+            email: currentUserEmail || null,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        });
+        currentNickname = nick;
+        updateNicknameUI();
+        nicknameStatus.textContent = "닉네임이 저장되었습니다.";
+      } catch(e){
+        nicknameStatus.textContent = "이미 사용 중인 닉네임입니다.";
+      }
     }
     function makeWeakId(entry){
       return `${entry.op}|${entry.level}|${entry.problem}|${entry.answer}`;
@@ -1021,6 +1113,12 @@
         currentUserId = user ? user.uid : null;
         currentUserEmail = user ? user.email : null;
         updateAuthUI(user);
+        if(user){
+          loadNickname(user.uid);
+        } else {
+          currentNickname = null;
+          updateNicknameUI();
+        }
       });
     });
 
@@ -1049,6 +1147,7 @@
       updateSettingUI();
     });
     setSec.addEventListener("input", updateSettingUI);
+    nicknameSaveBtn.addEventListener("click", saveNickname);
 
     startBtn.addEventListener("click", () => {
       if(isLocked){
