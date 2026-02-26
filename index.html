@@ -432,6 +432,7 @@
       if(op === "sub") extra = " (음수 방지: 큰 수 − 작은 수)";
       if(usePerQ.checked){
         perQSec.value = lvl.t.toFixed(1);
+        syncWeakLimit(op, lvl.name, lvl.t);
       }
       ruleText.textContent =
         `${opLabel(op)} ${sym} 난이도: ${lvl.name}${extra}`;
@@ -631,6 +632,19 @@
     }
     function saveWeak(uid, data){
       localStorage.setItem(`ms_weak_${uid}`, JSON.stringify(data));
+    }
+    function syncWeakLimit(op, level, limit){
+      if(!currentUserId) return;
+      const data = loadWeak(currentUserId);
+      const items = data.items || {};
+      let changed = false;
+      Object.values(items).forEach(item => {
+        if(item.op === op && item.level === level){
+          item.limit = limit;
+          changed = true;
+        }
+      });
+      if(changed) saveWeak(currentUserId, data);
     }
     function makeWeakId(entry){
       return `${entry.op}|${entry.level}|${entry.problem}|${entry.answer}`;
@@ -983,7 +997,14 @@
       setSec.disabled = running || !useSet.checked;
       updateSettingUI();
     });
-    perQSec.addEventListener("input", updateSettingUI);
+    perQSec.addEventListener("input", () => {
+      if(usePerQ.checked){
+        const v = clampFloat(perQSec.value, 0.5, 30);
+        perQSec.value = v.toFixed(1);
+        syncWeakLimit(opSelect.value, levelSelect.value, v);
+      }
+      updateSettingUI();
+    });
     setSec.addEventListener("input", updateSettingUI);
 
     startBtn.addEventListener("click", () => {
