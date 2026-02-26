@@ -161,11 +161,36 @@
       margin:0; padding-left:18px; font-size:12px; color:var(--muted);
     }
     .stat-list li{ margin-bottom:4px; }
+    .modal{
+      position:fixed; inset:0;
+      background:rgba(0,0,0,.45);
+      display:none; align-items:center; justify-content:center;
+      z-index:50;
+    }
+    .modal.show{ display:flex; }
+    .modal-card{
+      width:min(900px, 94vw);
+      max-height:90vh;
+      overflow:auto;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:16px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.2);
+    }
+    .modal-head{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; margin-bottom:10px;
+    }
+    .modal-head .title{ font-weight:800; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>수능 기초 체력 훈련</h1>
+    <div class="row" style="justify-content:space-between; align-items:center;">
+      <h1 style="margin:0;">수능 기초 체력 훈련</h1>
+      <button id="openStatsBtn" class="btn secondary" type="button">내 기록</button>
+    </div>
 
     <div class="card" id="authCard">
       <div style="font-weight:800; margin-bottom:6px;">로그인</div>
@@ -302,11 +327,17 @@
         </ul>
       </div>
 
-      <div class="card" id="statsCard">
-        <div style="font-weight:800; margin-bottom:6px;">내 기록</div>
-        <div class="small" id="statsEmpty">로그인 후 내 기록을 볼 수 있습니다.</div>
-        <div id="statsBox"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="statsModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="내 기록">
+      <div class="modal-head">
+        <div class="title">내 기록</div>
+        <button id="closeStatsBtn" class="btn secondary" type="button">닫기</button>
       </div>
+      <div class="small" id="statsEmpty">로그인 후 내 기록을 볼 수 있습니다.</div>
+      <div id="statsBox"></div>
     </div>
   </div>
 
@@ -347,6 +378,9 @@
     const lockNote = document.getElementById("lockNote");
     const statsBox = document.getElementById("statsBox");
     const statsEmpty = document.getElementById("statsEmpty");
+    const statsModal = document.getElementById("statsModal");
+    const openStatsBtn = document.getElementById("openStatsBtn");
+    const closeStatsBtn = document.getElementById("closeStatsBtn");
 
     const opSelect = document.getElementById("opSelect");
     const levelSelect = document.getElementById("levelSelect");
@@ -839,6 +873,27 @@
       currentUserId = user ? user.uid : null;
       updateAuthUI(user);
       renderStats();
+    });
+
+    function openStats(){
+      statsModal.classList.add("show");
+      statsModal.setAttribute("aria-hidden", "false");
+      renderStats();
+    }
+    function closeStats(){
+      statsModal.classList.remove("show");
+      statsModal.setAttribute("aria-hidden", "true");
+    }
+
+    openStatsBtn.addEventListener("click", openStats);
+    closeStatsBtn.addEventListener("click", closeStats);
+    statsModal.addEventListener("click", (e) => {
+      if(e.target === statsModal) closeStats();
+    });
+    document.addEventListener("keydown", (e) => {
+      if(e.key === "Escape" && statsModal.classList.contains("show")){
+        closeStats();
+      }
     });
 
     opSelect.addEventListener("change", () => {
