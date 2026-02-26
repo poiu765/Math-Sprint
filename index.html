@@ -1013,10 +1013,16 @@
       // fire-and-forget authReady; do not block login click
       authReady.catch(() => {});
       try{
-        // Prefer popup first; fallback to redirect if popup is blocked (common on iOS Safari)
+        if(isMobile()){
+          authStatus.textContent = "로그인 진행 중...";
+          await auth.signInWithRedirect(provider);
+          return;
+        }
+        // Prefer popup on desktop; fallback to redirect if popup is blocked
         try{
           await auth.signInWithPopup(provider);
         } catch(e){
+          authStatus.textContent = "팝업이 차단되어 리디렉트로 전환합니다.";
           await auth.signInWithRedirect(provider);
         }
       } catch(e){
