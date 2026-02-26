@@ -44,6 +44,35 @@
       margin-top:12px;
     }
     .small{ font-size:12px; color:var(--muted); }
+    .hr{ height:1px; background:var(--line); margin:12px 0; }
+    .answerRow{
+      display:flex; gap:10px; margin-top:10px; align-items:stretch;
+    }
+    .answerRow input{
+      flex:1;
+      font-size:18px;
+      padding:12px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+    }
+    .problem{
+      display:flex; align-items:center; justify-content:center;
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:18px;
+      min-height:72px;
+      font-size:28px;
+      font-weight:800;
+      letter-spacing:.3px;
+      user-select:none;
+    }
+    .status{
+      margin-top:8px; min-height:22px;
+      font-size:13px; color:var(--muted);
+    }
+    .status.ok{ color:#047857; font-weight:700; }
+    .status.bad{ color:#b91c1c; font-weight:700; }
     .stat-grid{
       display:grid; gap:10px;
       grid-template-columns: repeat(2, minmax(0,1fr));
@@ -73,6 +102,26 @@
       <div class="small" id="authStatus">로그인 상태를 확인하는 중입니다.</div>
       <div class="small" id="statsEmpty" style="margin-top:8px;">로그인 후 내 기록을 볼 수 있습니다.</div>
       <div id="statsBox" style="margin-top:8px;"></div>
+
+      <div class="hr"></div>
+
+      <div class="row" style="align-items:center; justify-content:space-between;">
+        <div style="font-weight:800;">약점 연습</div>
+        <button id="practiceBtn" class="btn" type="button">약점 연습 시작</button>
+      </div>
+      <div class="small" id="practiceHint" style="margin-top:6px;">
+        틀린문제 또는 시간이 오래걸린 문제만 출제됩니다. 단원은 섞어서 나옵니다.
+      </div>
+      <div id="practiceBox" style="margin-top:10px; display:none;">
+        <div class="problem" id="practiceProblem">—</div>
+        <div class="answerRow">
+          <input id="practiceInput" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="정답 입력" />
+          <button id="practiceSubmit" class="btn" type="button">제출</button>
+          <button id="practiceNext" class="btn secondary" type="button" disabled>다음</button>
+        </div>
+        <div class="status" id="practiceStatus"></div>
+        <div class="small" id="practiceMeta"></div>
+      </div>
     </div>
   </div>
 
@@ -95,6 +144,18 @@
     const statsEmpty = document.getElementById("statsEmpty");
     const statsBox = document.getElementById("statsBox");
     const logoutBtn = document.getElementById("logoutBtn");
+    const practiceBtn = document.getElementById("practiceBtn");
+    const practiceBox = document.getElementById("practiceBox");
+    const practiceProblem = document.getElementById("practiceProblem");
+    const practiceInput = document.getElementById("practiceInput");
+    const practiceSubmit = document.getElementById("practiceSubmit");
+    const practiceNext = document.getElementById("practiceNext");
+    const practiceStatus = document.getElementById("practiceStatus");
+    const practiceMeta = document.getElementById("practiceMeta");
+
+    let currentUserId = null;
+    let practiceQueue = [];
+    let currentWeak = null;
 
     function opLabel(op){
       return op === "add" ? "덧셈" : op === "sub" ? "뺄셈" : op === "mul" ? "곱셈" : "나눗셈";
@@ -106,6 +167,17 @@
       } catch(e){
         return {};
       }
+    }
+    function loadWeak(uid){
+      try{
+        const raw = localStorage.getItem(`ms_weak_${uid}`);
+        return raw ? JSON.parse(raw) : { items: {} };
+      } catch(e){
+        return { items: {} };
+      }
+    }
+    function saveWeak(uid, data){
+      localStorage.setItem(`ms_weak_${uid}`, JSON.stringify(data));
     }
     function renderStats(uid){
       if(!uid){
@@ -149,8 +221,122 @@
       statsEmpty.style.display = "none";
     }
 
+    function getDueWeak(uid){
+      const data = loadWeak(uid);
+      const now = Date.now();
+      const items = Object.values(data.items || {});
+      return items.filter(i => i.nextAt <= now);
+    }
+    function pickPracticeQueue(uid){
+      const due = getDueWeak(uid);
+      // shuffle
+      for(let i = due.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = due[i]; due[i] = due[j]; due[j] = t;
+      }
+      return due;
+    }
+    function showPracticeIdle(msg){
+      practiceBox.style.display = "block";
+      practiceProblem.textContent = "—";
+      practiceStatus.className = "status";
+      practiceStatus.textContent = msg || "약점 연습을 시작하세요.";
+      practiceMeta.textContent = "";
+      practiceSubmit.disabled = true;
+      practiceNext.disabled = true;
+    }
+    function renderCurrentWeak(){
+      if(!currentWeak){
+        showPracticeIdle("오늘 풀 문제가 없습니다.");
+        return;
+      }
+      practiceProblem.textContent = currentWeak.problem;
+      practiceInput.value = "";
+      practiceInput.focus();
+      practiceStatus.className = "status";
+      practiceStatus.textContent = "";
+      practiceMeta.textContent = `단원: ${opLabel(currentWeak.op)} · 난이도: ${currentWeak.level}`;
+      practiceSubmit.disabled = false;
+      practiceNext.disabled = true;
+    }
+    function advanceWeak(item, correct){
+      const data = loadWeak(currentUserId);
+      const stored = data.items[item.id];
+      if(!stored) return;
+      const now = Date.now();
+      const steps = [1, 3, 7, 30];
+      if(correct){
+        const nextStage = Math.min((stored.stage || 0) + 1, 4);
+        const days = steps[Math.min(nextStage - 1, steps.length - 1)];
+        stored.stage = nextStage;
+        stored.nextAt = now + days * 24 * 60 * 60 * 1000;
+        stored.lastResult = "correct";
+      } else {
+        stored.stage = 0;
+        stored.nextAt = now;
+        stored.lastResult = "wrong";
+      }
+      stored.lastTs = now;
+      data.items[item.id] = stored;
+      saveWeak(currentUserId, data);
+    }
+    function nextPractice(){
+      currentWeak = practiceQueue.shift() || null;
+      renderCurrentWeak();
+    }
+
     logoutBtn.addEventListener("click", async () => {
       await auth.signOut();
+    });
+
+    practiceBtn.addEventListener("click", () => {
+      if(!currentUserId){
+        showPracticeIdle("로그인 후 약점 연습을 사용할 수 있습니다.");
+        return;
+      }
+      practiceQueue = pickPracticeQueue(currentUserId);
+      if(practiceQueue.length === 0){
+        showPracticeIdle("오늘 풀 문제가 없습니다.");
+        return;
+      }
+      practiceBox.style.display = "block";
+      nextPractice();
+    });
+
+    practiceSubmit.addEventListener("click", () => {
+      if(!currentWeak) return;
+      const raw = practiceInput.value.trim();
+      if(raw === "") return;
+      const userAns = parseInt(raw, 10);
+      if(Number.isNaN(userAns)) return;
+      const isCorrect = userAns === currentWeak.answer;
+      if(isCorrect){
+        practiceStatus.className = "status ok";
+        practiceStatus.textContent = "정답!";
+      } else {
+        practiceStatus.className = "status bad";
+        practiceStatus.textContent = `오답! 정답은 ${currentWeak.answer}`;
+      }
+      advanceWeak(currentWeak, isCorrect);
+      practiceSubmit.disabled = true;
+      practiceNext.disabled = false;
+      renderStats(currentUserId);
+    });
+
+    practiceNext.addEventListener("click", () => {
+      if(practiceQueue.length === 0){
+        currentWeak = null;
+        showPracticeIdle("오늘 풀 문제가 없습니다.");
+      } else {
+        nextPractice();
+      }
+    });
+
+    practiceInput.addEventListener("keydown", (e) => {
+      if(e.key === "Enter" && !practiceSubmit.disabled){
+        e.preventDefault();
+        practiceSubmit.click();
+      }
     });
 
     auth.onAuthStateChanged((user) => {
@@ -158,11 +344,14 @@
         const label = user.displayName || user.email || "로그인됨";
         authStatus.textContent = `로그인됨: ${label}`;
         logoutBtn.disabled = false;
+        currentUserId = user.uid;
         renderStats(user.uid);
       } else {
         authStatus.textContent = "로그인하지 않으면 기록을 볼 수 없습니다.";
         logoutBtn.disabled = true;
+        currentUserId = null;
         renderStats(null);
+        showPracticeIdle("로그인 후 약점 연습을 사용할 수 있습니다.");
       }
     });
   </script>

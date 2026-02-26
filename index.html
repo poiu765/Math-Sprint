@@ -561,6 +561,48 @@
     function saveStats(uid, data){
       localStorage.setItem(`ms_stats_${uid}`, JSON.stringify(data));
     }
+    function loadWeak(uid){
+      try{
+        const raw = localStorage.getItem(`ms_weak_${uid}`);
+        return raw ? JSON.parse(raw) : { items: {} };
+      } catch(e){
+        return { items: {} };
+      }
+    }
+    function saveWeak(uid, data){
+      localStorage.setItem(`ms_weak_${uid}`, JSON.stringify(data));
+    }
+    function makeWeakId(entry){
+      return `${entry.op}|${entry.level}|${entry.problem}|${entry.answer}`;
+    }
+    function upsertWeakness(entry, reason){
+      const data = loadWeak(currentUserId);
+      const id = makeWeakId(entry);
+      const now = Date.now();
+      const item = data.items[id] || {
+        id,
+        op: entry.op,
+        level: entry.level,
+        problem: entry.problem,
+        answer: entry.answer,
+        reasons: { wrong: false, slow: false },
+        stage: 0,
+        nextAt: now,
+        lastResult: entry.result,
+        lastTime: entry.time,
+        lastTs: entry.ts
+      };
+      item.reasons.wrong = item.reasons.wrong || !!reason.wrong;
+      item.reasons.slow = item.reasons.slow || !!reason.slow;
+      item.stage = 0;
+      item.nextAt = now;
+      item.lastResult = entry.result;
+      item.lastTime = entry.time;
+      item.lastTs = entry.ts;
+      data.items[id] = item;
+      saveWeak(currentUserId, data);
+    }
+
     function recordAttempt(result, userAnswer){
       if(!currentUserId || !current) return;
       const timeSec = qStartAt ? (Date.now() - qStartAt) / 1000 : 0;
@@ -586,6 +628,14 @@
         data[entry.op].slow.push(entry);
       }
       saveStats(currentUserId, data);
+
+      const reason = {
+        wrong: result !== "correct",
+        slow: entry.time >= limitSec
+      };
+      if(reason.wrong || reason.slow){
+        upsertWeakness(entry, reason);
+      }
     }
 
     function genProblem(){
