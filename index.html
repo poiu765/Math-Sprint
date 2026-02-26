@@ -1011,8 +1011,9 @@
       .catch(() => null);
 
     googleLoginBtn.addEventListener("click", async () => {
+      // fire-and-forget authReady; do not block login click
+      authReady.catch(() => {});
       try{
-        await authReady;
         // Prefer popup first; fallback to redirect if popup is blocked (common on iOS Safari)
         try{
           await auth.signInWithPopup(provider);
