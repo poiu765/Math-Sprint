@@ -149,6 +149,23 @@
       user-select:none;
     }
     .choice-btn:active{ transform: translateY(1px); }
+    .frac{
+      display:inline-flex;
+      flex-direction:column;
+      align-items:center;
+      line-height:1;
+      vertical-align:middle;
+      margin:0 2px;
+    }
+    .frac .top{
+      border-bottom:1px solid currentColor;
+      padding:0 2px 2px;
+      font-size:0.95em;
+    }
+    .frac .bottom{
+      padding:2px 2px 0;
+      font-size:0.95em;
+    }
     .help{ font-size:12px; color:var(--muted); margin-top:8px; }
     .hr{ height:1px; background:var(--line); margin:12px 0; }
     .small{ font-size:12px; color:var(--muted); }
@@ -420,6 +437,18 @@
       "rad:π/3": { sin:"√3/2",  cos:"1/2",   tan:"√3" },
       "rad:π/2": { sin:"1",     cos:"0",     tan:null }
     };
+    function escapeHTML(str){
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+    function formatMathHTML(text){
+      const escaped = escapeHTML(String(text));
+      return escaped.replace(/(π|√\d+|\d+)\s*\/\s*(\d+)/g, (_m, a, b) => {
+        return `<span class="frac"><span class="top">${a}</span><span class="bottom">${b}</span></span>`;
+      });
+    }
     function updateRuleUI(){
       const op = opSelect.value;
       const ladder = ladders[op];
@@ -826,7 +855,7 @@
     }
 
     function renderProblem(){
-      problemBox.textContent = current.shownText;
+      problemBox.innerHTML = formatMathHTML(current.shownText);
       answerInput.value = "";
       statusEl.className = "status";
       statusEl.textContent = "";
@@ -886,7 +915,7 @@
         const btn = document.createElement("button");
         btn.className = "choice-btn";
         btn.type = "button";
-        btn.textContent = val;
+        btn.innerHTML = formatMathHTML(val);
         btn.addEventListener("click", () => submitChoice(val));
         choiceBox.appendChild(btn);
       });

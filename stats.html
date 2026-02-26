@@ -84,6 +84,23 @@
       user-select:none;
     }
     .choice-btn:active{ transform: translateY(1px); }
+    .frac{
+      display:inline-flex;
+      flex-direction:column;
+      align-items:center;
+      line-height:1;
+      vertical-align:middle;
+      margin:0 2px;
+    }
+    .frac .top{
+      border-bottom:1px solid currentColor;
+      padding:0 2px 2px;
+      font-size:0.95em;
+    }
+    .frac .bottom{
+      padding:2px 2px 0;
+      font-size:0.95em;
+    }
     .status{
       margin-top:8px; min-height:22px;
       font-size:13px; color:var(--muted);
@@ -263,6 +280,18 @@
     function opLabel(op){
       return op === "add" ? "덧셈" : op === "sub" ? "뺄셈" : op === "mul" ? "곱셈" : op === "div" ? "나눗셈" : "삼각함수";
     }
+    function escapeHTML(str){
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+    function formatMathHTML(text){
+      const escaped = escapeHTML(String(text));
+      return escaped.replace(/(π|√\d+|\d+)\s*\/\s*(\d+)/g, (_m, a, b) => {
+        return `<span class="frac"><span class="top">${a}</span><span class="bottom">${b}</span></span>`;
+      });
+    }
     const levelMap = {
       add: ["(두자리,한자리)", "(두자리,두자리)", "(세자리,두자리)", "(세자리,세자리)"],
       sub: ["(두자리,한자리)", "(두자리,두자리)", "(세자리,두자리)", "(세자리,세자리)"],
@@ -315,21 +344,21 @@
       if(wrong.length === 0){
         html += `<li>기록 없음</li>`;
       } else {
-        wrong.forEach(e => {
-          const ua = e.userAnswer === null || e.userAnswer === undefined ? "—" : e.userAnswer;
-          html += `<li>${e.problem} = ${e.answer} (내 답: ${ua}) · ${e.time.toFixed(1)}초</li>`;
-        });
-      }
+          wrong.forEach(e => {
+            const ua = e.userAnswer === null || e.userAnswer === undefined ? "—" : e.userAnswer;
+            html += `<li>${formatMathHTML(e.problem)} = ${formatMathHTML(e.answer)} (내 답: ${formatMathHTML(ua)}) · ${e.time.toFixed(1)}초</li>`;
+          });
+        }
       html += `</ul></div>`;
       html += `<div><div class="small" style="font-weight:700;">시간이 오래걸린 문제</div><ul class="stat-list">`;
       if(slow.length === 0){
         html += `<li>기록 없음</li>`;
       } else {
-        slow.forEach(e => {
-          const tag = e.result === "correct" ? "정답" : e.result === "timeout" ? "시간초과" : "오답";
-          html += `<li>${e.problem} · ${e.time.toFixed(1)}초 (${tag})</li>`;
-        });
-      }
+          slow.forEach(e => {
+            const tag = e.result === "correct" ? "정답" : e.result === "timeout" ? "시간초과" : "오답";
+            html += `<li>${formatMathHTML(e.problem)} · ${e.time.toFixed(1)}초 (${tag})</li>`;
+          });
+        }
       html += `</ul></div>`;
       html += `</div></div>`;
       statsBox.innerHTML = html;
@@ -369,13 +398,13 @@
           html += `<div><div class="small" style="font-weight:700;">문제별 정답률</div><ul class="admin-list">`;
           entries.forEach(([key, row]) => {
             const acc = row.total ? (row.correct / row.total * 100) : 0;
-            html += `<li>${key} · ${acc.toFixed(1)}% (${row.correct}/${row.total})</li>`;
+            html += `<li>${formatMathHTML(key)} · ${acc.toFixed(1)}% (${row.correct}/${row.total})</li>`;
           });
           html += `</ul></div>`;
           html += `<div><div class="small" style="font-weight:700;">문제별 풀이시간(평균)</div><ul class="admin-list">`;
           entries.forEach(([key, row]) => {
             const avg = row.total ? (row.timeSum / row.total) : 0;
-            html += `<li>${key} · ${avg.toFixed(1)}초</li>`;
+            html += `<li>${formatMathHTML(key)} · ${avg.toFixed(1)}초</li>`;
           });
           html += `</ul></div>`;
           html += `</div></div>`;
@@ -423,7 +452,7 @@
         return `
           <li class="weak-item">
             <input type="checkbox" class="weak-check" data-id="${item.id}">
-            <label>${item.problem} = ${item.answer} · ${opLabel(item.op)} · ${item.level} · 다음: ${due} · ${reasons.join("/") || "약점"}</label>
+            <label>${formatMathHTML(item.problem)} = ${formatMathHTML(item.answer)} · ${opLabel(item.op)} · ${item.level} · 다음: ${due} · ${reasons.join("/") || "약점"}</label>
           </li>
         `;
       });
@@ -466,7 +495,7 @@
         const btn = document.createElement("button");
         btn.className = "choice-btn";
         btn.type = "button";
-        btn.textContent = val;
+        btn.innerHTML = formatMathHTML(val);
         btn.addEventListener("click", () => submitPracticeChoice(val));
         practiceChoices.appendChild(btn);
       });
@@ -476,7 +505,7 @@
         showPracticeIdle("오늘 풀 문제가 없습니다.");
         return;
       }
-      practiceProblem.textContent = currentWeak.problem;
+      practiceProblem.innerHTML = formatMathHTML(currentWeak.problem);
       practiceInput.value = "";
       practiceInput.focus();
       practiceStatus.className = "status";
