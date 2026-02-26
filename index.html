@@ -988,6 +988,8 @@
     }
 
     // ====== Events ======
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+
     googleLoginBtn.addEventListener("click", async () => {
       try{
         if(isMobile()){
@@ -999,6 +1001,8 @@
         authStatus.textContent = "로그인 중 오류가 발생했습니다.";
       }
     });
+
+    auth.getRedirectResult().catch(() => {});
 
     logoutBtn.addEventListener("click", async () => {
       await auth.signOut();
