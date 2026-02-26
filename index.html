@@ -303,9 +303,6 @@
             <button class="kbtn action" data-act="enter">⏎</button>
           </div>
 
-          <div class="help" id="kbdHelp">
-            ※ 모바일은 위 숫자패드를 써도 되고, 입력칸 터치 시 숫자 키패드가 뜨도록 설정했습니다.
-          </div>
         </div>
       </div>
 
@@ -396,7 +393,6 @@
     const statusEl = document.getElementById("status");
     const choiceBox = document.getElementById("choiceBox");
     const kbd = document.getElementById("kbd");
-    const kbdHelp = document.getElementById("kbdHelp");
 
     // ====== State ======
     let running = false;
@@ -548,7 +544,7 @@
       choiceBox.style.display = "none";
       answerRow.style.display = "flex";
       kbd.style.display = "grid";
-      kbdHelp.style.display = "block";
+      // no help text
     }
 
     function clearTimers(){
@@ -866,14 +862,14 @@
         submitBtn.disabled = true;
         answerRow.style.display = "none";
         kbd.style.display = "none";
-        kbdHelp.style.display = "none";
+        // no help text
       } else {
         choiceBox.style.display = "none";
         answerInput.disabled = false;
         submitBtn.disabled = false;
         answerRow.style.display = "flex";
         kbd.style.display = "grid";
-        kbdHelp.style.display = "block";
+        // no help text
       }
       qStartAt = Date.now();
       startQuestionTimer();
