@@ -297,27 +297,27 @@
     // ====== Difficulty ladders (as requested) ======
     const ladders = {
       add: [
-        { name: "(두자리,한자리)", a:2, b:1 },
-        { name: "(두자리,두자리)", a:2, b:2 },
-        { name: "(세자리,두자리)", a:3, b:2 },
-        { name: "(세자리,세자리)", a:3, b:3 },
+        { name: "(두자리,한자리)", a:2, b:1, t:2.0 },
+        { name: "(두자리,두자리)", a:2, b:2, t:2.5 },
+        { name: "(세자리,두자리)", a:3, b:2, t:3.5 },
+        { name: "(세자리,세자리)", a:3, b:3, t:4.0 },
       ],
       sub: [
-        { name: "(두자리,한자리)", a:2, b:1 },
-        { name: "(두자리,두자리)", a:2, b:2 },
-        { name: "(세자리,두자리)", a:3, b:2 },
-        { name: "(세자리,세자리)", a:3, b:3 },
+        { name: "(두자리,한자리)", a:2, b:1, t:2.0 },
+        { name: "(두자리,두자리)", a:2, b:2, t:2.5 },
+        { name: "(세자리,두자리)", a:3, b:2, t:3.5 },
+        { name: "(세자리,세자리)", a:3, b:3, t:4.0 },
       ],
       mul: [
-        { name: "(한자리,한자리)", a:1, b:1 },
-        { name: "(두자리,한자리)", a:2, b:1 },
-        { name: "(두자리,두자리)", a:2, b:2 },
+        { name: "(한자리,한자리)", a:1, b:1, t:1.5 },
+        { name: "(두자리,한자리)", a:2, b:1, t:2.5 },
+        { name: "(두자리,두자리)", a:2, b:2, t:4.0 },
       ],
       div: [
-        { name: "(두자리,한자리)", a:2, b:1 },
-        { name: "(두자리,두자리)", a:2, b:2 },
-        { name: "(세자리,한자리)", a:3, b:1 },
-        { name: "(세자리,두자리)", a:3, b:2 },
+        { name: "(두자리,한자리)", a:2, b:1, t:1.5 },
+        { name: "(두자리,두자리)", a:2, b:2, t:2.5 },
+        { name: "(세자리,한자리)", a:3, b:1, t:3.0 },
+        { name: "(세자리,두자리)", a:3, b:2, t:4.0 },
       ]
     };
 
@@ -382,6 +382,9 @@
       let extra = "";
       if(op === "div") extra = " (항상 정수로 나누어떨어짐)";
       if(op === "sub") extra = " (음수 방지: 큰 수 − 작은 수)";
+      if(usePerQ.checked){
+        perQSec.value = lvl.t.toFixed(1);
+      }
       ruleText.textContent =
         `${opLabel(op)} ${sym} 난이도: ${lvl.name}${extra}`;
       updateSettingUI();
@@ -407,7 +410,7 @@
       opSelect.disabled = on;
       levelSelect.disabled = on;
       usePerQ.disabled = on;
-      perQSec.disabled = on || !usePerQ.checked;
+      perQSec.disabled = true;
       useSet.disabled = on;
       setSec.disabled = on || !useSet.checked;
       statusEl.className = "status";
@@ -720,7 +723,10 @@
     levelSelect.addEventListener("change", updateRuleUI);
 
     usePerQ.addEventListener("change", () => {
-      perQSec.disabled = running || !usePerQ.checked;
+      perQSec.disabled = true;
+      if(usePerQ.checked){
+        updateRuleUI();
+      }
       updateSettingUI();
     });
     useSet.addEventListener("change", () => {
@@ -790,6 +796,9 @@
     populateLevelOptions();
     updateSettingUI();
     setIdleProblem();
+    usePerQ.checked = true;
+    usePerQ.disabled = true;
+    perQSec.disabled = true;
   </script>
 </body>
 </html>
