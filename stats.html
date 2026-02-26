@@ -358,6 +358,7 @@
     });
 
     practiceBtn.addEventListener("click", () => {
+      practiceBox.style.display = "block";
       if(!currentUserId){
         showPracticeIdle("로그인 후 약점 연습을 사용할 수 있습니다.");
         return;
@@ -441,6 +442,7 @@
         currentUserId = user.uid;
         renderStats(user.uid);
         renderWeakList(user.uid);
+        showPracticeIdle("약점 연습을 시작하세요.");
       } else {
         authStatus.textContent = "로그인하지 않으면 기록을 볼 수 없습니다.";
         logoutBtn.disabled = true;
