@@ -188,7 +188,10 @@
 
       <div class="row" style="align-items:center; justify-content:space-between;">
         <div style="font-weight:800;">약점 관리</div>
-        <button id="weakDeleteBtn" class="btn danger-muted" type="button" disabled>선택 삭제</button>
+        <div class="row">
+          <button id="weakSelectAllBtn" class="btn secondary" type="button" disabled>전체선택</button>
+          <button id="weakDeleteBtn" class="btn danger-muted" type="button" disabled>선택 삭제</button>
+        </div>
       </div>
       <div class="small" id="weakEmpty" style="margin-top:6px;">삭제할 약점이 없습니다.</div>
       <ul class="weak-list" id="weakList" style="margin-top:8px;"></ul>
@@ -237,6 +240,7 @@
     const weakDeleteBtn = document.getElementById("weakDeleteBtn");
     const weakEmpty = document.getElementById("weakEmpty");
     const weakList = document.getElementById("weakList");
+    const weakSelectAllBtn = document.getElementById("weakSelectAllBtn");
     const adminCard = document.getElementById("adminCard");
     const adminStatus = document.getElementById("adminStatus");
     const adminBox = document.getElementById("adminBox");
@@ -388,6 +392,7 @@
         weakList.innerHTML = "";
         weakEmpty.style.display = "block";
         weakDeleteBtn.disabled = true;
+        weakSelectAllBtn.disabled = true;
         return;
       }
       const data = loadWeak(uid);
@@ -396,6 +401,7 @@
         weakList.innerHTML = "";
         weakEmpty.style.display = "block";
         weakDeleteBtn.disabled = true;
+        weakSelectAllBtn.disabled = true;
         return;
       }
       weakEmpty.style.display = "none";
@@ -413,6 +419,7 @@
       });
       weakList.innerHTML = rows.join("");
       weakDeleteBtn.disabled = true;
+      weakSelectAllBtn.disabled = false;
     }
 
     function getDueWeak(uid){
@@ -641,6 +648,20 @@
       } else {
         selectedWeak.delete(id);
       }
+      weakDeleteBtn.disabled = selectedWeak.size === 0;
+    });
+
+    weakSelectAllBtn.addEventListener("click", () => {
+      const checks = weakList.querySelectorAll(".weak-check");
+      if(checks.length === 0) return;
+      const allChecked = Array.from(checks).every(c => c.checked);
+      selectedWeak = new Set();
+      checks.forEach(c => {
+        c.checked = !allChecked;
+        if(c.checked){
+          selectedWeak.add(c.getAttribute("data-id"));
+        }
+      });
       weakDeleteBtn.disabled = selectedWeak.size === 0;
     });
 
