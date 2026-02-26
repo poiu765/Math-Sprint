@@ -292,6 +292,9 @@
         return `<span class="frac"><span class="top">${a}</span><span class="bottom">${b}</span></span>`;
       });
     }
+    function compactProblem(text){
+      return String(text).replace(/\s+/g, "").replace(/−/g, "-");
+    }
     const levelMap = {
       add: ["(두자리,한자리)", "(두자리,두자리)", "(세자리,두자리)", "(세자리,세자리)"],
       sub: ["(두자리,한자리)", "(두자리,두자리)", "(세자리,두자리)", "(세자리,세자리)"],
@@ -452,7 +455,7 @@
         return `
           <li class="weak-item">
             <input type="checkbox" class="weak-check" data-id="${item.id}">
-            <label>${formatMathHTML(item.problem)} = ${formatMathHTML(item.answer)} · ${opLabel(item.op)} · ${item.level} · 다음: ${due} · ${reasons.join("/") || "약점"}</label>
+            <label>${formatMathHTML(compactProblem(item.problem))} · ${opLabel(item.op)} · ${item.level} · 다음: ${due} · ${reasons.join("/") || "약점"}</label>
           </li>
         `;
       });
