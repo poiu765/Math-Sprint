@@ -283,7 +283,7 @@
               id="answerInput"
               type="text"
               inputmode="numeric"
-              pattern="[-0-9]*"
+              pattern="[0-9]*"
               autocomplete="off"
               placeholder="정답 입력"
               disabled
@@ -307,7 +307,6 @@
             <button class="kbtn" data-k="7">7</button>
             <button class="kbtn" data-k="8">8</button>
             <button class="kbtn" data-k="9">9</button>
-            <button class="kbtn" data-k="-">−</button>
             <button class="kbtn" data-k="0">0</button>
             <button class="kbtn danger" data-act="del">⌫</button>
           </div>
@@ -1103,16 +1102,7 @@
         const k = btn.getAttribute("data-k");
         const act = btn.getAttribute("data-act");
         if(k !== null){
-          if(k === "-"){
-            const v = answerInput.value;
-            if(v.startsWith("-")){
-              answerInput.value = v.slice(1);
-            } else {
-              answerInput.value = "-" + v;
-            }
-          } else {
-            answerInput.value += k;
-          }
+          answerInput.value += k;
           answerInput.focus();
         } else if(act === "del"){
           answerInput.value = answerInput.value.slice(0, -1);
