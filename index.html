@@ -732,13 +732,15 @@
         return;
       }
       if(currentNickname === nick){
-        nicknameStatus.textContent = "이미 사용 중인 닉네임입니다.";
+        nicknameStatus.textContent = "이미 설정된 닉네임입니다.";
         return;
       }
       nicknameStatus.textContent = "저장 중...";
       const nickKey = nick.toLowerCase();
       const nickRef = db.collection("nicknames").doc(nickKey);
       const userRef = db.collection("users").doc(currentUserId);
+      const prevKey = currentNickname ? currentNickname.toLowerCase() : null;
+      const prevRef = prevKey ? db.collection("nicknames").doc(prevKey) : null;
       try{
         await db.runTransaction(async (tx) => {
           const nickSnap = await tx.get(nickRef);
@@ -750,6 +752,12 @@
             nickname: nick,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
+          if(prevRef && prevKey !== nickKey){
+            const prevSnap = await tx.get(prevRef);
+            if(prevSnap.exists && prevSnap.data().uid === currentUserId){
+              tx.delete(prevRef);
+            }
+          }
           tx.set(userRef, {
             nickname: nick,
             email: currentUserEmail || null,
