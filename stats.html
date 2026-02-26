@@ -709,17 +709,54 @@
 
     weakPrintBtn.addEventListener("click", () => {
       const checks = weakList.querySelectorAll(".weak-check");
+      const selected = [];
       checks.forEach(c => {
-        const li = c.closest(".weak-item");
-        if(!li) return;
-        li.style.display = c.checked ? "flex" : "none";
+        if(c.checked){
+          const li = c.closest(".weak-item");
+          if(li){
+            const label = li.querySelector("label");
+            selected.push(label ? label.innerHTML : li.innerHTML);
+          }
+        }
       });
-      window.print();
-      checks.forEach(c => {
-        const li = c.closest(".weak-item");
-        if(!li) return;
-        li.style.display = "flex";
-      });
+      if(selected.length === 0) return;
+
+      const html = `
+        <!doctype html>
+        <html lang="ko">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>약점 인쇄</title>
+          <style>
+            body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif; margin:20px; }
+            h1{ font-size:18px; margin:0 0 10px; }
+            ul{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; }
+            li{ border:1px solid #ddd; border-radius:10px; padding:8px 10px; font-size:12px; }
+            .frac{
+              display:inline-flex; flex-direction:column; align-items:center; line-height:1; vertical-align:middle; margin:0 2px;
+            }
+            .frac .top{ border-bottom:1px solid currentColor; padding:0 2px 2px; font-size:0.95em; }
+            .frac .bottom{ padding:2px 2px 0; font-size:0.95em; }
+          </style>
+        </head>
+        <body>
+          <h1>선택한 약점</h1>
+          <ul>
+            ${selected.map(s => `<li>${s}</li>`).join("")}
+          </ul>
+        </body>
+        </html>
+      `;
+
+      const w = window.open("", "_blank");
+      if(!w) return;
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      w.print();
+      w.close();
     });
 
     weakDeleteBtn.addEventListener("click", () => {
