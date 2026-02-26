@@ -367,15 +367,16 @@
       practiceEndAt = Date.now() + limitSec * 1000;
       practiceTimer = setInterval(() => {
         const leftMs = practiceEndAt - Date.now();
-        if(leftMs <= 0){
-          clearPracticeTimer();
-          if(currentWeak){
-            practiceStatus.className = "status bad";
-            practiceStatus.textContent = `시간초과! 정답은 ${currentWeak.answer}`;
-            advanceWeak(currentWeak, false);
-            practiceSubmit.disabled = true;
-            practiceNext.disabled = false;
-            renderStats(currentUserId);
+          if(leftMs <= 0){
+            clearPracticeTimer();
+            if(currentWeak){
+              practiceStatus.className = "status bad";
+              practiceStatus.textContent = `시간초과! 정답은 ${currentWeak.answer}`;
+              practiceInput.value = "";
+              advanceWeak(currentWeak, false);
+              practiceSubmit.disabled = true;
+              practiceNext.disabled = false;
+              renderStats(currentUserId);
             renderWeakList(currentUserId);
           }
         }
