@@ -148,6 +148,19 @@
       margin-top:8px; font-size:12px; color:var(--danger);
       font-weight:700;
     }
+    .stat-grid{
+      display:grid; gap:10px;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+    @media (max-width: 900px){
+      .stat-grid{ grid-template-columns: 1fr; }
+    }
+    .stat-op{ margin-bottom:12px; }
+    .stat-title{ font-weight:800; margin-bottom:6px; }
+    .stat-list{
+      margin:0; padding-left:18px; font-size:12px; color:var(--muted);
+    }
+    .stat-list li{ margin-bottom:4px; }
   </style>
 </head>
 <body>
@@ -190,7 +203,7 @@
           <div class="toggle">
             <input id="usePerQ" type="checkbox" checked />
             <label for="usePerQ" style="margin:0;color:var(--fg);">문제당 제한시간(초)</label>
-            <input id="perQSec" type="number" min="1" max="30" value="5" style="width:90px;" />
+            <input id="perQSec" type="number" min="0.5" max="30" step="0.1" value="5" style="width:90px;" />
           </div>
 
           <div class="toggle">
@@ -288,6 +301,12 @@
           <li>곱셈/나눗셈 난이도는 자릿수 조합만 적용합니다.</li>
         </ul>
       </div>
+
+      <div class="card" id="statsCard">
+        <div style="font-weight:800; margin-bottom:6px;">내 기록</div>
+        <div class="small" id="statsEmpty">로그인 후 내 기록을 볼 수 있습니다.</div>
+        <div id="statsBox"></div>
+      </div>
     </div>
   </div>
 
@@ -326,6 +345,8 @@
     const logoutBtn = document.getElementById("logoutBtn");
     const authStatus = document.getElementById("authStatus");
     const lockNote = document.getElementById("lockNote");
+    const statsBox = document.getElementById("statsBox");
+    const statsEmpty = document.getElementById("statsEmpty");
 
     const opSelect = document.getElementById("opSelect");
     const levelSelect = document.getElementById("levelSelect");
@@ -356,6 +377,8 @@
     let current = null; // {a,b,op,answer,shownText}
     let okCnt = 0, badCnt = 0;
     let isLocked = true;
+    let qStartAt = null;
+    let currentUserId = null;
 
     let setTimer = null, qTimer = null;
     let setEndAt = null, qEndAt = null;
@@ -506,8 +529,8 @@
       qEndAt = null;
 
       if(usePerQ.checked){
-        const s = clampInt(perQSec.value, 1, 30);
-        perQSec.value = s;
+        const s = clampFloat(perQSec.value, 0.5, 30);
+        perQSec.value = s.toFixed(1);
         qEndAt = Date.now() + s * 1000;
         qTimer = setInterval(() => {
           const leftMs = qEndAt - Date.now();
@@ -515,6 +538,7 @@
           qLeftEl.textContent = left + "s";
           if(leftMs <= 0){
             // time out counts as bad, then next
+            recordAttempt("timeout", null);
             registerBad(`시간초과! 정답은 ${current.answer}`);
             nextProblem();
           }
@@ -528,6 +552,100 @@
       const n = parseInt(v, 10);
       if(Number.isNaN(n)) return min;
       return Math.min(max, Math.max(min, n));
+    }
+    function clampFloat(v, min, max){
+      const n = parseFloat(v);
+      if(Number.isNaN(n)) return min;
+      return Math.min(max, Math.max(min, n));
+    }
+
+    function getCurrentLimit(){
+      const op = opSelect.value;
+      const ladder = ladders[op];
+      const lvl = ladder[levelSelect.selectedIndex];
+      return lvl.t;
+    }
+
+    function loadStats(uid){
+      try{
+        const raw = localStorage.getItem(`ms_stats_${uid}`);
+        return raw ? JSON.parse(raw) : {};
+      } catch(e){
+        return {};
+      }
+    }
+    function saveStats(uid, data){
+      localStorage.setItem(`ms_stats_${uid}`, JSON.stringify(data));
+    }
+    function recordAttempt(result, userAnswer){
+      if(!currentUserId || !current) return;
+      const timeSec = qStartAt ? (Date.now() - qStartAt) / 1000 : 0;
+      const limitSec = getCurrentLimit();
+      const entry = {
+        op: opSelect.value,
+        level: levelSelect.value,
+        problem: current.shownText,
+        answer: current.answer,
+        userAnswer: userAnswer,
+        time: Number(timeSec.toFixed(1)),
+        limit: limitSec,
+        result: result,
+        ts: Date.now()
+      };
+
+      const data = loadStats(currentUserId);
+      if(!data[entry.op]) data[entry.op] = { wrong: [], slow: [] };
+      if(result !== "correct"){
+        data[entry.op].wrong.push(entry);
+      }
+      if(entry.time >= limitSec){
+        data[entry.op].slow.push(entry);
+      }
+      saveStats(currentUserId, data);
+      renderStats();
+    }
+
+    function renderStats(){
+      if(!currentUserId){
+        statsBox.innerHTML = "";
+        statsEmpty.style.display = "block";
+        statsEmpty.textContent = "로그인 후 내 기록을 볼 수 있습니다.";
+        return;
+      }
+      const data = loadStats(currentUserId);
+      const ops = ["add", "sub", "mul", "div"];
+      let html = "";
+      ops.forEach(op => {
+        const opData = data[op] || { wrong: [], slow: [] };
+        const wrong = opData.wrong.slice().reverse();
+        const slow = opData.slow.slice().reverse();
+        html += `<div class="stat-op">`;
+        html += `<div class="stat-title">${opLabel(op)}</div>`;
+        html += `<div class="stat-grid">`;
+        html += `<div><div class="small" style="font-weight:700;">틀린문제</div><ul class="stat-list">`;
+        if(wrong.length === 0){
+          html += `<li>기록 없음</li>`;
+        } else {
+          wrong.forEach(e => {
+            const ua = e.userAnswer === null || e.userAnswer === undefined ? "—" : e.userAnswer;
+            html += `<li>${e.problem} = ${e.answer} (내 답: ${ua}) · ${e.time.toFixed(1)}초 · ${e.level}</li>`;
+          });
+        }
+        html += `</ul></div>`;
+        html += `<div><div class="small" style="font-weight:700;">시간이 오래걸린 문제</div><ul class="stat-list">`;
+        if(slow.length === 0){
+          html += `<li>기록 없음</li>`;
+        } else {
+          slow.forEach(e => {
+            const tag = e.result === "correct" ? "정답" : e.result === "timeout" ? "시간초과" : e.result === "skip" ? "넘김" : "오답";
+            html += `<li>${e.problem} · ${e.time.toFixed(1)}초 (${tag}) · ${e.level}</li>`;
+          });
+        }
+        html += `</ul></div>`;
+        html += `</div></div>`;
+      });
+      statsBox.innerHTML = html;
+      statsEmpty.style.display = "none";
     }
 
     function genProblem(){
@@ -613,6 +731,7 @@
       answerInput.value = "";
       statusEl.className = "status";
       statusEl.textContent = "";
+      qStartAt = Date.now();
       startQuestionTimer();
     }
 
@@ -656,8 +775,10 @@
       if(Number.isNaN(userAns)) return;
 
       if(userAns === current.answer){
+        recordAttempt("correct", userAns);
         registerOk("정답!");
       } else {
+        recordAttempt("wrong", userAns);
         registerBad(`오답! 정답은 ${current.answer}`);
       }
       nextProblem();
@@ -714,7 +835,9 @@
     });
 
     auth.onAuthStateChanged((user) => {
+      currentUserId = user ? user.uid : null;
       updateAuthUI(user);
+      renderStats();
     });
 
     opSelect.addEventListener("change", () => {
@@ -758,6 +881,7 @@
 
     skipBtn.addEventListener("click", () => {
       if(!running) return;
+      recordAttempt("skip", null);
       registerBad(`넘김! 정답은 ${current.answer}`);
       nextProblem();
     });
