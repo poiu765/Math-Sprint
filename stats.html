@@ -486,6 +486,11 @@
       const steps = [1, 3, 7];
       if(correct){
         const nextStage = Math.min((stored.stage || 0) + 1, 3);
+        if(nextStage >= 3){
+          delete data.items[item.id];
+          saveWeak(currentUserId, data);
+          return;
+        }
         const days = steps[Math.min(nextStage - 1, steps.length - 1)];
         stored.stage = nextStage;
         stored.nextAt = now + days * 24 * 60 * 60 * 1000;
