@@ -192,7 +192,7 @@
         <div class="row">
           <div class="toggle">
             <input id="usePerQ" type="checkbox" checked style="display:none;" />
-            <label for="usePerQ" style="margin:0;color:var(--fg);">문제당 제한시간(초) (항상 ON)</label>
+            <label for="usePerQ" style="margin:0;color:var(--fg);">문제당 제한시간(초)</label>
             <input id="perQSec" type="number" min="0.5" max="30" step="0.1" value="5" style="width:90px;" />
           </div>
 
@@ -206,7 +206,6 @@
         <div class="row" style="margin-top:10px;">
           <button id="startBtn" class="btn">시작</button>
           <button id="stopBtn" class="btn secondary" disabled>중지</button>
-          <button id="skipBtn" class="btn secondary" disabled>넘기기</button>
           <span class="small">PC: Enter 제출 / Backspace 삭제</span>
         </div>
 
@@ -343,7 +342,6 @@
 
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
-    const skipBtn = document.getElementById("skipBtn");
 
     const setLeftEl = document.getElementById("setLeft");
     const qLeftEl = document.getElementById("qLeft");
@@ -411,7 +409,6 @@
       running = on;
       startBtn.disabled = on;
       stopBtn.disabled = !on;
-      skipBtn.disabled = !on;
       answerInput.disabled = !on;
       submitBtn.disabled = !on;
       opSelect.disabled = on;
@@ -425,7 +422,6 @@
       if(isLocked){
         startBtn.disabled = true;
         stopBtn.disabled = true;
-        skipBtn.disabled = true;
         answerInput.disabled = true;
         submitBtn.disabled = true;
         opSelect.disabled = true;
@@ -889,13 +885,6 @@
 
     stopBtn.addEventListener("click", () => {
       endRun("중지되었습니다.");
-    });
-
-    skipBtn.addEventListener("click", () => {
-      if(!running) return;
-      recordAttempt("skip", null);
-      registerBad(`넘김! 정답은 ${current.answer}`);
-      nextProblem();
     });
 
     submitBtn.addEventListener("click", submitAnswer);
