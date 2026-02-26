@@ -988,7 +988,10 @@
     }
 
     // ====== Events ======
-    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+    const authReady = auth
+      .setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+      .then(() => auth.getRedirectResult())
+      .catch(() => null);
 
     googleLoginBtn.addEventListener("click", async () => {
       try{
@@ -1002,16 +1005,16 @@
       }
     });
 
-    auth.getRedirectResult().catch(() => {});
-
     logoutBtn.addEventListener("click", async () => {
       await auth.signOut();
     });
 
-    auth.onAuthStateChanged((user) => {
-      currentUserId = user ? user.uid : null;
-      currentUserEmail = user ? user.email : null;
-      updateAuthUI(user);
+    authReady.finally(() => {
+      auth.onAuthStateChanged((user) => {
+        currentUserId = user ? user.uid : null;
+        currentUserEmail = user ? user.email : null;
+        updateAuthUI(user);
+      });
     });
 
     opSelect.addEventListener("change", () => {
