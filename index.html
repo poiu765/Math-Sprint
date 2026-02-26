@@ -310,7 +310,6 @@
             <button class="kbtn" data-k="-">−</button>
             <button class="kbtn danger" data-act="del">⌫</button>
             <button class="kbtn" data-k="0">0</button>
-            <button class="kbtn action" data-act="enter">⏎</button>
           </div>
 
         </div>
@@ -1117,9 +1116,6 @@
         } else if(act === "del"){
           answerInput.value = answerInput.value.slice(0, -1);
           answerInput.focus();
-        } else if(act === "enter"){
-          submitAnswer();
-        }
       });
     });
 
