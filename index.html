@@ -136,15 +136,68 @@
       border-radius:10px; background:#fff;
     }
     input[type="checkbox"]{ width:18px; height:18px; }
+    .tabs{
+      display:flex; gap:8px; align-items:center;
+      border-bottom:1px solid var(--line);
+      padding-bottom:8px; margin-bottom:10px;
+    }
+    .tab{
+      padding:8px 12px; border-radius:999px;
+      border:1px solid var(--line); background:#fff;
+      font-size:13px; cursor:pointer;
+    }
+    .tab.active{
+      background:var(--btn); color:var(--btnfg); border-color:var(--btn);
+      font-weight:700;
+    }
+    .auth-grid{
+      display:grid; gap:10px;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+    @media (max-width: 700px){
+      .auth-grid{ grid-template-columns: 1fr; }
+    }
+    .auth-note{
+      font-size:12px; color:var(--muted);
+    }
+    .lock-note{
+      margin-top:8px; font-size:12px; color:var(--danger);
+      font-weight:700;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>사칙연산 스피드 트레이너 (MVP)</h1>
 
+    <div class="card" id="authCard">
+      <div class="tabs">
+        <button class="tab active" id="tabLogin" type="button">로그인</button>
+        <button class="tab" id="tabRegister" type="button">회원가입</button>
+      </div>
+
+      <div class="auth-grid">
+        <div>
+          <label>아이디</label><br/>
+          <input id="authId" type="text" autocomplete="username" placeholder="아이디" />
+        </div>
+        <div>
+          <label>비밀번호</label><br/>
+          <input id="authPw" type="password" autocomplete="current-password" placeholder="비밀번호" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <button id="authAction" class="btn">로그인</button>
+        <button id="logoutBtn" class="btn secondary" disabled>로그아웃</button>
+        <div class="auth-note" id="authStatus">로그인하지 않으면 게임을 사용할 수 없습니다.</div>
+      </div>
+      <div class="auth-note">※ 데모용 로컬 저장 방식입니다. 보안이 적용되지 않습니다.</div>
+    </div>
+
     <div class="grid">
       <!-- LEFT: GAME -->
-      <div class="card">
+      <div class="card" id="gameCard">
         <div class="row">
           <div style="flex:1; min-width:220px;">
             <label>연산</label><br/>
@@ -206,6 +259,7 @@
 
         <div style="margin-top:12px;">
           <div class="problem" id="problemBox">시작을 누르세요</div>
+          <div id="lockNote" class="lock-note" style="display:none;">로그인 후 사용할 수 있습니다.</div>
 
           <div class="answerRow">
             <input
@@ -295,6 +349,15 @@
     };
 
     // ====== DOM ======
+    const tabLogin = document.getElementById("tabLogin");
+    const tabRegister = document.getElementById("tabRegister");
+    const authId = document.getElementById("authId");
+    const authPw = document.getElementById("authPw");
+    const authAction = document.getElementById("authAction");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const authStatus = document.getElementById("authStatus");
+    const lockNote = document.getElementById("lockNote");
+
     const opSelect = document.getElementById("opSelect");
     const levelSelect = document.getElementById("levelSelect");
     const ruleText = document.getElementById("ruleText");
@@ -323,6 +386,8 @@
     let running = false;
     let current = null; // {a,b,op,answer,shownText}
     let okCnt = 0, badCnt = 0;
+    let authMode = "login"; // "login" | "register"
+    let isLocked = true;
 
     let setTimer = null, qTimer = null;
     let setEndAt = null, qEndAt = null;
@@ -380,9 +445,91 @@
       setSec.disabled = on || !useSet.checked;
       statusEl.className = "status";
       statusEl.textContent = "";
+      if(isLocked){
+        startBtn.disabled = true;
+        stopBtn.disabled = true;
+        skipBtn.disabled = true;
+        answerInput.disabled = true;
+        submitBtn.disabled = true;
+        opSelect.disabled = true;
+        levelSelect.disabled = true;
+        usePerQ.disabled = true;
+        perQSec.disabled = true;
+        useSet.disabled = true;
+        setSec.disabled = true;
+      }
       if(on){
         // focus input (mobile may show keyboard only on user gesture; still fine)
         setTimeout(() => answerInput.focus(), 50);
+      }
+    }
+
+    function loadUsers(){
+      try{
+        const raw = localStorage.getItem("ms_users");
+        return raw ? JSON.parse(raw) : {};
+      } catch(e){
+        return {};
+      }
+    }
+    function saveUsers(users){
+      localStorage.setItem("ms_users", JSON.stringify(users));
+    }
+    function getCurrentUser(){
+      return localStorage.getItem("ms_current_user");
+    }
+    function setCurrentUser(id){
+      if(id){
+        localStorage.setItem("ms_current_user", id);
+      } else {
+        localStorage.removeItem("ms_current_user");
+      }
+    }
+    function setAuthMode(mode){
+      authMode = mode;
+      if(mode === "login"){
+        tabLogin.classList.add("active");
+        tabRegister.classList.remove("active");
+        authAction.textContent = "로그인";
+        authPw.autocomplete = "current-password";
+      } else {
+        tabRegister.classList.add("active");
+        tabLogin.classList.remove("active");
+        authAction.textContent = "회원가입";
+        authPw.autocomplete = "new-password";
+      }
+      authStatus.textContent = "로그인하지 않으면 게임을 사용할 수 없습니다.";
+    }
+    function setGameLocked(locked){
+      isLocked = locked;
+      lockNote.style.display = locked ? "block" : "none";
+      if(locked){
+        if(running) endRun("로그인이 필요합니다.");
+        problemBox.textContent = "로그인 후 시작하세요";
+      } else {
+        if(problemBox.textContent === "로그인 후 시작하세요"){
+          problemBox.textContent = "시작을 누르세요";
+        }
+      }
+      setUIRunning(false);
+    }
+
+    function updateAuthUI(){
+      const user = getCurrentUser();
+      if(user){
+        authStatus.textContent = `로그인됨: ${user}`;
+        logoutBtn.disabled = false;
+        authAction.disabled = true;
+        authId.disabled = true;
+        authPw.disabled = true;
+        setGameLocked(false);
+      } else {
+        authStatus.textContent = "로그인하지 않으면 게임을 사용할 수 없습니다.";
+        logoutBtn.disabled = true;
+        authAction.disabled = false;
+        authId.disabled = false;
+        authPw.disabled = false;
+        setGameLocked(true);
       }
     }
 
@@ -594,6 +741,57 @@
     }
 
     // ====== Events ======
+    tabLogin.addEventListener("click", () => {
+      if(authMode !== "login") setAuthMode("login");
+    });
+    tabRegister.addEventListener("click", () => {
+      if(authMode !== "register") setAuthMode("register");
+    });
+
+    authAction.addEventListener("click", () => {
+      const id = authId.value.trim();
+      const pw = authPw.value;
+      if(id.length < 2 || pw.length < 2){
+        authStatus.textContent = "아이디/비밀번호는 2자 이상 입력하세요.";
+        return;
+      }
+      const users = loadUsers();
+      if(authMode === "login"){
+        if(!users[id] || users[id].pw !== pw){
+          authStatus.textContent = "아이디 또는 비밀번호가 올바르지 않습니다.";
+          return;
+        }
+        setCurrentUser(id);
+        authPw.value = "";
+        updateAuthUI();
+      } else {
+        if(users[id]){
+          authStatus.textContent = "이미 존재하는 아이디입니다.";
+          return;
+        }
+        users[id] = { pw };
+        saveUsers(users);
+        setCurrentUser(id);
+        authPw.value = "";
+        updateAuthUI();
+      }
+    });
+
+    [authId, authPw].forEach(el => {
+      el.addEventListener("keydown", (e) => {
+        if(e.key === "Enter" && !authAction.disabled){
+          e.preventDefault();
+          authAction.click();
+        }
+      });
+    });
+
+    logoutBtn.addEventListener("click", () => {
+      setCurrentUser(null);
+      authPw.value = "";
+      updateAuthUI();
+    });
+
     opSelect.addEventListener("change", () => {
       populateLevelOptions();
     });
@@ -611,6 +809,11 @@
     setSec.addEventListener("input", updateSettingUI);
 
     startBtn.addEventListener("click", () => {
+      if(isLocked){
+        statusEl.className = "status bad";
+        statusEl.textContent = "로그인 후 이용할 수 있습니다.";
+        return;
+      }
       okCnt = 0; badCnt = 0;
       okCntEl.textContent = "0";
       badCntEl.textContent = "0";
@@ -664,6 +867,8 @@
     // init
     populateLevelOptions();
     updateSettingUI();
+    setAuthMode("login");
+    updateAuthUI();
   </script>
 </body>
 </html>
