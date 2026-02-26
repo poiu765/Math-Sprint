@@ -1,14 +1,671 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hello World</title>
-  <link href='/style.css' rel='stylesheet'>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>사칙연산 스피드 트레이너 (MVP)</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --fg:#111111;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+      --accent:#111111;
+      --danger:#b91c1c;
+      --ok:#047857;
+      --card:#fafafa;
+      --btn:#111111;
+      --btnfg:#ffffff;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; background:var(--bg); color:var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif;
+      line-height:1.35;
+    }
+    .wrap{ max-width:980px; margin:0 auto; padding:20px; }
+    h1{ margin:0 0 12px; font-size:20px; }
+    .grid{
+      display:grid; gap:12px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 900px){
+      .grid{ grid-template-columns: 1.1fr 0.9fr; }
+    }
+    .card{
+      border:1px solid var(--line);
+      background:var(--card);
+      border-radius:12px;
+      padding:14px;
+    }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    label{ font-size:13px; color:var(--muted); }
+    select, input[type="number"], input[type="text"]{
+      padding:10px 12px;
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:#fff;
+      font-size:16px;
+      outline:none;
+    }
+    select:focus, input:focus{ border-color:#c7c7c7; }
+    .btn{
+      padding:10px 14px;
+      border:1px solid var(--btn);
+      background:var(--btn);
+      color:var(--btnfg);
+      border-radius:10px;
+      font-size:15px;
+      cursor:pointer;
+    }
+    .btn.secondary{
+      background:#fff; color:var(--fg); border-color:var(--line);
+    }
+    .btn:disabled{ opacity:.5; cursor:not-allowed; }
+    .meta{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+    .pill{
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:10px 12px;
+      background:#fff;
+    }
+    .pill .k{ font-size:12px; color:var(--muted); }
+    .pill .v{ font-size:18px; font-weight:700; margin-top:2px; }
+    .problem{
+      display:flex; align-items:center; justify-content:center;
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:18px;
+      min-height:84px;
+      font-size:34px;
+      font-weight:800;
+      letter-spacing:.5px;
+      user-select:none;
+    }
+    .answerRow{
+      display:flex; gap:10px; margin-top:10px; align-items:stretch;
+    }
+    .answerRow input{
+      flex:1;
+      font-size:22px;
+      padding:14px 14px;
+      border-radius:14px;
+    }
+    .status{
+      margin-top:10px; min-height:22px;
+      font-size:14px; color:var(--muted);
+    }
+    .status.ok{ color:var(--ok); font-weight:700; }
+    .status.bad{ color:var(--danger); font-weight:700; }
+    .kbd{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:10px;
+    }
+    .kbtn{
+      padding:18px 0;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-size:22px;
+      font-weight:800;
+      cursor:pointer;
+      user-select:none;
+    }
+    .kbtn:active{ transform: translateY(1px); }
+    .kbtn.wide{ grid-column: span 2; }
+    .kbtn.action{
+      background:var(--btn); color:var(--btnfg); border-color:var(--btn);
+    }
+    .kbtn.danger{
+      background:#fff; color:var(--danger); border-color:#f3c5c5;
+    }
+    .help{ font-size:12px; color:var(--muted); margin-top:8px; }
+    .hr{ height:1px; background:var(--line); margin:12px 0; }
+    .small{ font-size:12px; color:var(--muted); }
+    .toggle{
+      display:flex; gap:8px; align-items:center;
+      padding:8px 10px; border:1px solid var(--line);
+      border-radius:10px; background:#fff;
+    }
+    input[type="checkbox"]{ width:18px; height:18px; }
+  </style>
 </head>
 <body>
-  <h1>Hello, world!</h1>
-  <button onclick="console.log('hello');">Press me</button>
-  <script defer type="text/javascript" src="/main.js"></script>
+  <div class="wrap">
+    <h1>사칙연산 스피드 트레이너 (MVP)</h1>
+
+    <div class="grid">
+      <!-- LEFT: GAME -->
+      <div class="card">
+        <div class="row">
+          <div style="flex:1; min-width:220px;">
+            <label>연산</label><br/>
+            <select id="opSelect">
+              <option value="add">덧셈 (+)</option>
+              <option value="sub">뺄셈 (−)</option>
+              <option value="mul">곱셈 (×)</option>
+              <option value="div">나눗셈 (÷, 나누어떨어짐)</option>
+            </select>
+          </div>
+
+          <div style="flex:1; min-width:220px;">
+            <label>난이도 단계</label><br/>
+            <select id="levelSelect"></select>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="row">
+          <div class="toggle">
+            <input id="usePerQ" type="checkbox" checked />
+            <label for="usePerQ" style="margin:0;color:var(--fg);">문제당 제한시간(초)</label>
+            <input id="perQSec" type="number" min="1" max="30" value="5" style="width:90px;" />
+          </div>
+
+          <div class="toggle">
+            <input id="useSet" type="checkbox" checked />
+            <label for="useSet" style="margin:0;color:var(--fg);">세트 제한시간(초)</label>
+            <input id="setSec" type="number" min="10" max="600" value="60" style="width:110px;" />
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <button id="startBtn" class="btn">시작</button>
+          <button id="stopBtn" class="btn secondary" disabled>중지</button>
+          <button id="skipBtn" class="btn secondary" disabled>넘기기</button>
+          <span class="small">PC: Enter 제출 / Backspace 삭제</span>
+        </div>
+
+        <div class="meta">
+          <div class="pill">
+            <div class="k">세트 남은 시간</div>
+            <div class="v" id="setLeft">—</div>
+          </div>
+          <div class="pill">
+            <div class="k">문제 남은 시간</div>
+            <div class="v" id="qLeft">—</div>
+          </div>
+          <div class="pill">
+            <div class="k">정답</div>
+            <div class="v"><span id="okCnt">0</span></div>
+          </div>
+          <div class="pill">
+            <div class="k">오답/시간초과</div>
+            <div class="v"><span id="badCnt">0</span></div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div class="problem" id="problemBox">시작을 누르세요</div>
+
+          <div class="answerRow">
+            <input
+              id="answerInput"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              autocomplete="off"
+              placeholder="정답 입력"
+              disabled
+            />
+            <button id="submitBtn" class="btn" style="border-radius:14px;" disabled>제출</button>
+          </div>
+
+          <div id="status" class="status"></div>
+
+          <!-- On-screen keypad -->
+          <div class="kbd" aria-label="숫자패드">
+            <button class="kbtn" data-k="1">1</button>
+            <button class="kbtn" data-k="2">2</button>
+            <button class="kbtn" data-k="3">3</button>
+            <button class="kbtn" data-k="4">4</button>
+            <button class="kbtn" data-k="5">5</button>
+            <button class="kbtn" data-k="6">6</button>
+            <button class="kbtn" data-k="7">7</button>
+            <button class="kbtn" data-k="8">8</button>
+            <button class="kbtn" data-k="9">9</button>
+            <button class="kbtn danger" data-act="del">⌫</button>
+            <button class="kbtn" data-k="0">0</button>
+            <button class="kbtn action" data-act="enter">⏎</button>
+          </div>
+
+          <div class="help">
+            ※ 모바일은 위 숫자패드를 써도 되고, 입력칸 터치 시 숫자 키패드가 뜨도록 설정했습니다.
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: INFO -->
+      <div class="card">
+        <div style="font-weight:800; margin-bottom:6px;">난이도 규칙</div>
+        <div class="small" id="ruleText"></div>
+
+        <div class="hr"></div>
+
+        <div style="font-weight:800; margin-bottom:6px;">현재 세트 설정</div>
+        <div class="small" id="settingText"></div>
+
+        <div class="hr"></div>
+
+        <div style="font-weight:800; margin-bottom:6px;">메모</div>
+        <ul class="small" style="margin:0; padding-left:18px;">
+          <li>나눗셈은 항상 정수로 나누어떨어지는 문제만 생성합니다.</li>
+          <li>뺄셈은 기본적으로 음수가 나오지 않도록 생성합니다.</li>
+          <li>곱셈/나눗셈 난이도는 자릿수 조합만 적용합니다.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ====== Difficulty ladders (as requested) ======
+    const ladders = {
+      add: [
+        { name: "(한자리,한자리)", a:1, b:1 },
+        { name: "(두자리,한자리)", a:2, b:1 },
+        { name: "(두자리,두자리)", a:2, b:2 },
+        { name: "(세자리,두자리)", a:3, b:2 },
+        { name: "(세자리,세자리)", a:3, b:3 },
+      ],
+      sub: [
+        { name: "(한자리,한자리)", a:1, b:1 },
+        { name: "(두자리,한자리)", a:2, b:1 },
+        { name: "(두자리,두자리)", a:2, b:2 },
+        { name: "(세자리,두자리)", a:3, b:2 },
+        { name: "(세자리,세자리)", a:3, b:3 },
+      ],
+      mul: [
+        { name: "(한자리,한자리)", a:1, b:1 },
+        { name: "(두자리,한자리)", a:2, b:1 },
+        { name: "(두자리,두자리)", a:2, b:2 },
+      ],
+      div: [
+        { name: "(두자리,한자리)", a:2, b:1 },
+        { name: "(두자리,두자리)", a:2, b:2 },
+        { name: "(세자리,한자리)", a:3, b:1 },
+        { name: "(세자리,두자리)", a:3, b:2 },
+      ]
+    };
+
+    // ====== DOM ======
+    const opSelect = document.getElementById("opSelect");
+    const levelSelect = document.getElementById("levelSelect");
+    const ruleText = document.getElementById("ruleText");
+    const settingText = document.getElementById("settingText");
+
+    const usePerQ = document.getElementById("usePerQ");
+    const perQSec = document.getElementById("perQSec");
+    const useSet = document.getElementById("useSet");
+    const setSec = document.getElementById("setSec");
+
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const skipBtn = document.getElementById("skipBtn");
+
+    const setLeftEl = document.getElementById("setLeft");
+    const qLeftEl = document.getElementById("qLeft");
+    const okCntEl = document.getElementById("okCnt");
+    const badCntEl = document.getElementById("badCnt");
+
+    const problemBox = document.getElementById("problemBox");
+    const answerInput = document.getElementById("answerInput");
+    const submitBtn = document.getElementById("submitBtn");
+    const statusEl = document.getElementById("status");
+
+    // ====== State ======
+    let running = false;
+    let current = null; // {a,b,op,answer,shownText}
+    let okCnt = 0, badCnt = 0;
+
+    let setTimer = null, qTimer = null;
+    let setEndAt = null, qEndAt = null;
+
+    // ====== Helpers ======
+    function randint(min, max){
+      // inclusive
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+    function pow10(n){ return Math.pow(10, n); }
+    function randNDigits(d){
+      // d=1 -> 0..9? Usually 1-digit includes 0..9. But to reduce trivial leading zeros, we do:
+      // 1-digit: 0..9
+      // >=2-digit: 10^(d-1) .. 10^d - 1
+      if(d === 1) return randint(0, 9);
+      return randint(pow10(d-1), pow10(d)-1);
+    }
+    function updateRuleUI(){
+      const op = opSelect.value;
+      const ladder = ladders[op];
+      const idx = levelSelect.selectedIndex;
+      const lvl = ladder[idx];
+      const sym = op === "add" ? "+" : op === "sub" ? "−" : op === "mul" ? "×" : "÷";
+
+      let extra = "";
+      if(op === "div") extra = " (항상 정수로 나누어떨어짐)";
+      if(op === "sub") extra = " (음수 방지: 큰 수 − 작은 수)";
+      ruleText.textContent =
+        `${opLabel(op)} ${sym} 난이도: ${lvl.name}${extra}`;
+      updateSettingUI();
+    }
+    function updateSettingUI(){
+      const parts = [];
+      parts.push(`연산: ${opLabel(opSelect.value)}`);
+      parts.push(`난이도: ${levelSelect.value}`);
+      parts.push(`문제당 제한시간: ${usePerQ.checked ? perQSec.value + "초" : "OFF"}`);
+      parts.push(`세트 제한시간: ${useSet.checked ? setSec.value + "초" : "OFF"}`);
+      settingText.textContent = parts.join(" / ");
+    }
+    function opLabel(op){
+      return op === "add" ? "덧셈" : op === "sub" ? "뺄셈" : op === "mul" ? "곱셈" : "나눗셈";
+    }
+    function setUIRunning(on){
+      running = on;
+      startBtn.disabled = on;
+      stopBtn.disabled = !on;
+      skipBtn.disabled = !on;
+      answerInput.disabled = !on;
+      submitBtn.disabled = !on;
+      opSelect.disabled = on;
+      levelSelect.disabled = on;
+      usePerQ.disabled = on;
+      perQSec.disabled = on || !usePerQ.checked;
+      useSet.disabled = on;
+      setSec.disabled = on || !useSet.checked;
+      statusEl.className = "status";
+      statusEl.textContent = "";
+      if(on){
+        // focus input (mobile may show keyboard only on user gesture; still fine)
+        setTimeout(() => answerInput.focus(), 50);
+      }
+    }
+
+    function clearTimers(){
+      if(setTimer){ clearInterval(setTimer); setTimer = null; }
+      if(qTimer){ clearInterval(qTimer); qTimer = null; }
+      setEndAt = null;
+      qEndAt = null;
+      setLeftEl.textContent = "—";
+      qLeftEl.textContent = "—";
+    }
+
+    function startSetTimers(){
+      clearTimers();
+      const now = Date.now();
+
+      if(useSet.checked){
+        const s = clampInt(setSec.value, 10, 600);
+        setSec.value = s;
+        setEndAt = now + s * 1000;
+        setTimer = setInterval(() => {
+          const leftMs = setEndAt - Date.now();
+          const left = Math.max(0, Math.ceil(leftMs / 1000));
+          setLeftEl.textContent = left + "s";
+          if(leftMs <= 0){
+            endRun("세트 시간이 종료되었습니다.");
+          }
+        }, 150);
+      } else {
+        setLeftEl.textContent = "OFF";
+      }
+    }
+
+    function startQuestionTimer(){
+      if(qTimer){ clearInterval(qTimer); qTimer = null; }
+      qEndAt = null;
+
+      if(usePerQ.checked){
+        const s = clampInt(perQSec.value, 1, 30);
+        perQSec.value = s;
+        qEndAt = Date.now() + s * 1000;
+        qTimer = setInterval(() => {
+          const leftMs = qEndAt - Date.now();
+          const left = Math.max(0, Math.ceil(leftMs / 1000));
+          qLeftEl.textContent = left + "s";
+          if(leftMs <= 0){
+            // time out counts as bad, then next
+            registerBad(`시간초과! 정답은 ${current.answer}`);
+            nextProblem();
+          }
+        }, 120);
+      } else {
+        qLeftEl.textContent = "OFF";
+      }
+    }
+
+    function clampInt(v, min, max){
+      const n = parseInt(v, 10);
+      if(Number.isNaN(n)) return min;
+      return Math.min(max, Math.max(min, n));
+    }
+
+    function genProblem(){
+      const op = opSelect.value;
+      const ladder = ladders[op];
+      const lvl = ladder[levelSelect.selectedIndex];
+
+      let a = randNDigits(lvl.a);
+      let b = randNDigits(lvl.b);
+
+      // Avoid super-trivial for multi-digit: prevent b=0 in division and multiplication?
+      // We'll handle per-op.
+      let answer, shown;
+
+      if(op === "add"){
+        answer = a + b;
+        shown = `${a} + ${b}`;
+      } else if(op === "sub"){
+        // prevent negative: ensure a >= b
+        if(a < b){ const t=a; a=b; b=t; }
+        answer = a - b;
+        shown = `${a} − ${b}`;
+      } else if(op === "mul"){
+        // optionally avoid 0 too often: if both digits are 1 and 0 appears too much, fine for now
+        answer = a * b;
+        shown = `${a} × ${b}`;
+      } else if(op === "div"){
+        // division: must divide evenly. We will create (dividend ÷ divisor) with exact quotient.
+        // Given desired digit sizes: a digits = dividend, b digits = divisor
+        // Approach: sample divisor (b digits, not 0), sample quotient (>=1),
+        // compute dividend = divisor * quotient and ensure digit length matches a.
+        const divisorDigits = lvl.b;
+        const dividendDigits = lvl.a;
+
+        let divisor, quotient, dividend;
+        let tries = 0;
+        while(true){
+          tries++;
+          if(tries > 2000){
+            // fallback (shouldn't happen)
+            divisor = Math.max(1, randNDigits(divisorDigits));
+            quotient = randint(1, 9);
+            dividend = divisor * quotient;
+            break;
+          }
+
+          divisor = randNDigits(divisorDigits);
+          if(divisor === 0) continue;
+
+          // choose quotient range to get dividend digits roughly right
+          // dividend ≈ divisor * quotient should have dividendDigits digits
+          const minDividend = dividendDigits === 1 ? 0 : pow10(dividendDigits - 1);
+          const maxDividend = pow10(dividendDigits) - 1;
+
+          // quotient bounds: ceil(minDividend/divisor) .. floor(maxDividend/divisor)
+          const qMin = Math.ceil(minDividend / divisor);
+          const qMax = Math.floor(maxDividend / divisor);
+
+          const qLo = Math.max(1, qMin);
+          const qHi = Math.max(1, qMax);
+          if(qLo > qHi) continue;
+
+          quotient = randint(qLo, qHi);
+          dividend = divisor * quotient;
+
+          // ensure exact digit length match (especially for 2-digit min could be 10)
+          if(dividend < minDividend || dividend > maxDividend) continue;
+
+          // pass
+          break;
+        }
+        a = dividend;
+        b = divisor;
+        answer = quotient;
+        shown = `${a} ÷ ${b}`;
+      }
+
+      return { a, b, op, answer, shownText: shown };
+    }
+
+    function renderProblem(){
+      problemBox.textContent = current.shownText;
+      answerInput.value = "";
+      statusEl.className = "status";
+      statusEl.textContent = "";
+      startQuestionTimer();
+    }
+
+    function registerOk(msg){
+      okCnt++;
+      okCntEl.textContent = okCnt;
+      statusEl.className = "status ok";
+      statusEl.textContent = msg;
+    }
+    function registerBad(msg){
+      badCnt++;
+      badCntEl.textContent = badCnt;
+      statusEl.className = "status bad";
+      statusEl.textContent = msg;
+    }
+
+    function nextProblem(){
+      if(!running) return;
+      current = genProblem();
+      renderProblem();
+      answerInput.focus();
+    }
+
+    function endRun(msg){
+      setUIRunning(false);
+      running = false;
+      clearTimers();
+      problemBox.textContent = "시작을 누르세요";
+      statusEl.className = "status";
+      statusEl.textContent = msg || "";
+      answerInput.value = "";
+    }
+
+    function submitAnswer(){
+      if(!running || !current) return;
+
+      const raw = answerInput.value.trim();
+      if(raw === "") return;
+
+      const userAns = parseInt(raw, 10);
+      if(Number.isNaN(userAns)) return;
+
+      if(userAns === current.answer){
+        registerOk("정답!");
+      } else {
+        registerBad(`오답! 정답은 ${current.answer}`);
+      }
+      nextProblem();
+    }
+
+    // ====== UI init ======
+    function populateLevelOptions(){
+      levelSelect.innerHTML = "";
+      const op = opSelect.value;
+      const ladder = ladders[op];
+      ladder.forEach((lvl, i) => {
+        const opt = document.createElement("option");
+        opt.value = lvl.name;
+        opt.textContent = `${i+1}. ${lvl.name}`;
+        levelSelect.appendChild(opt);
+      });
+      levelSelect.selectedIndex = 0;
+      updateRuleUI();
+    }
+
+    // ====== Events ======
+    opSelect.addEventListener("change", () => {
+      populateLevelOptions();
+    });
+    levelSelect.addEventListener("change", updateRuleUI);
+
+    usePerQ.addEventListener("change", () => {
+      perQSec.disabled = running || !usePerQ.checked;
+      updateSettingUI();
+    });
+    useSet.addEventListener("change", () => {
+      setSec.disabled = running || !useSet.checked;
+      updateSettingUI();
+    });
+    perQSec.addEventListener("input", updateSettingUI);
+    setSec.addEventListener("input", updateSettingUI);
+
+    startBtn.addEventListener("click", () => {
+      okCnt = 0; badCnt = 0;
+      okCntEl.textContent = "0";
+      badCntEl.textContent = "0";
+
+      setUIRunning(true);
+      running = true;
+      startSetTimers();
+      nextProblem();
+    });
+
+    stopBtn.addEventListener("click", () => {
+      endRun("중지되었습니다.");
+    });
+
+    skipBtn.addEventListener("click", () => {
+      if(!running) return;
+      registerBad(`넘김! 정답은 ${current.answer}`);
+      nextProblem();
+    });
+
+    submitBtn.addEventListener("click", submitAnswer);
+
+    // keyboard shortcuts
+    document.addEventListener("keydown", (e) => {
+      if(!running) return;
+      if(e.key === "Enter"){
+        e.preventDefault();
+        submitAnswer();
+      }
+      // allow minus? not needed (we generate non-negative results)
+    });
+
+    // On-screen keypad
+    document.querySelectorAll(".kbtn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if(answerInput.disabled) return;
+        const k = btn.getAttribute("data-k");
+        const act = btn.getAttribute("data-act");
+        if(k !== null){
+          answerInput.value += k;
+          answerInput.focus();
+        } else if(act === "del"){
+          answerInput.value = answerInput.value.slice(0, -1);
+          answerInput.focus();
+        } else if(act === "enter"){
+          submitAnswer();
+        }
+      });
+    });
+
+    // init
+    populateLevelOptions();
+    updateSettingUI();
+  </script>
 </body>
 </html>
