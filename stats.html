@@ -67,6 +67,23 @@
       letter-spacing:.3px;
       user-select:none;
     }
+    .choices{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:10px;
+    }
+    .choice-btn{
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-size:14px;
+      font-weight:700;
+      cursor:pointer;
+      user-select:none;
+    }
+    .choice-btn:active{ transform: translateY(1px); }
     .status{
       margin-top:8px; min-height:22px;
       font-size:13px; color:var(--muted);
@@ -138,6 +155,7 @@
           <option value="sub">뺄셈</option>
           <option value="mul">곱셈</option>
           <option value="div">나눗셈</option>
+          <option value="trig">삼각함수</option>
         </select>
         <select id="filterLevel" class="select" disabled>
           <option value="">난이도 선택</option>
@@ -156,6 +174,7 @@
       </div>
       <div id="practiceBox" style="margin-top:10px; display:none;">
         <div class="problem" id="practiceProblem">—</div>
+        <div id="practiceChoices" class="choices" style="display:none;"></div>
         <div class="answerRow">
           <input id="practiceInput" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="정답 입력" />
           <button id="practiceSubmit" class="btn" type="button">제출</button>
@@ -214,6 +233,7 @@
     const practiceNext = document.getElementById("practiceNext");
     const practiceStatus = document.getElementById("practiceStatus");
     const practiceMeta = document.getElementById("practiceMeta");
+    const practiceChoices = document.getElementById("practiceChoices");
     const weakDeleteBtn = document.getElementById("weakDeleteBtn");
     const weakEmpty = document.getElementById("weakEmpty");
     const weakList = document.getElementById("weakList");
@@ -229,13 +249,14 @@
     let practiceEndAt = null;
 
     function opLabel(op){
-      return op === "add" ? "덧셈" : op === "sub" ? "뺄셈" : op === "mul" ? "곱셈" : "나눗셈";
+      return op === "add" ? "덧셈" : op === "sub" ? "뺄셈" : op === "mul" ? "곱셈" : op === "div" ? "나눗셈" : "삼각함수";
     }
     const levelMap = {
       add: ["(두자리,한자리)", "(두자리,두자리)", "(세자리,두자리)", "(세자리,세자리)"],
       sub: ["(두자리,한자리)", "(두자리,두자리)", "(세자리,두자리)", "(세자리,세자리)"],
       mul: ["(한자리,한자리)", "(두자리,한자리)", "(두자리,두자리)"],
-      div: ["(두자리,한자리)", "(두자리,두자리)", "(세자리,한자리)", "(세자리,두자리)"]
+      div: ["(두자리,한자리)", "(두자리,두자리)", "(세자리,한자리)", "(세자리,두자리)"],
+      trig: ["(1단계)"]
     };
     function loadStats(uid){
       try{
@@ -324,7 +345,7 @@
           row.timeSum += (typeof d.time === "number" ? d.time : 0);
         });
 
-        const ops = ["add", "sub", "mul", "div"];
+        const ops = ["add", "sub", "mul", "div", "trig"];
         let html = "";
         ops.forEach(op => {
           const opData = agg[op] || {};
@@ -416,8 +437,21 @@
       practiceStatus.className = "status";
       practiceStatus.textContent = msg || "약점 연습을 시작하세요.";
       practiceMeta.textContent = "";
+      practiceChoices.style.display = "none";
+      practiceInput.disabled = false;
       practiceSubmit.disabled = true;
       practiceNext.disabled = true;
+    }
+    function renderPracticeChoices(choices){
+      practiceChoices.innerHTML = "";
+      choices.forEach(val => {
+        const btn = document.createElement("button");
+        btn.className = "choice-btn";
+        btn.type = "button";
+        btn.textContent = val;
+        btn.addEventListener("click", () => submitPracticeChoice(val));
+        practiceChoices.appendChild(btn);
+      });
     }
     function renderCurrentWeak(){
       if(!currentWeak){
@@ -431,7 +465,16 @@
       practiceStatus.textContent = "";
       const limit = typeof currentWeak.limit === "number" ? currentWeak.limit : 3.0;
       practiceMeta.textContent = `단원: ${opLabel(currentWeak.op)} · 난이도: ${currentWeak.level} · 제한 ${limit.toFixed(1)}초`;
-      practiceSubmit.disabled = false;
+      if(currentWeak.choices && currentWeak.choices.length){
+        practiceChoices.style.display = "grid";
+        renderPracticeChoices(currentWeak.choices);
+        practiceSubmit.disabled = true;
+        practiceInput.disabled = true;
+      } else {
+        practiceChoices.style.display = "none";
+        practiceSubmit.disabled = false;
+        practiceInput.disabled = false;
+      }
       practiceNext.disabled = true;
       startPracticeTimer(limit);
     }
@@ -459,6 +502,22 @@
     function nextPractice(){
       currentWeak = practiceQueue.shift() || null;
       renderCurrentWeak();
+    }
+    function submitPracticeChoice(val){
+      if(!currentWeak) return;
+      clearPracticeTimer();
+      const isCorrect = val === currentWeak.answer;
+      if(isCorrect){
+        practiceStatus.className = "status ok";
+        practiceStatus.textContent = "정답!";
+      } else {
+        practiceStatus.className = "status bad";
+        practiceStatus.textContent = `오답! 정답은 ${currentWeak.answer}`;
+      }
+      advanceWeak(currentWeak, isCorrect);
+      practiceNext.disabled = false;
+      renderStats(currentUserId);
+      renderWeakList(currentUserId);
     }
 
     function clearPracticeTimer(){
@@ -507,6 +566,7 @@
 
     practiceSubmit.addEventListener("click", () => {
       if(!currentWeak) return;
+      if(currentWeak.choices && currentWeak.choices.length) return;
       const raw = practiceInput.value.trim();
       if(raw === "") return;
       const userAns = parseInt(raw, 10);

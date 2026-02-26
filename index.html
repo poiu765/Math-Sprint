@@ -132,6 +132,23 @@
     .kbtn.danger{
       background:#fff; color:var(--danger); border-color:#f3c5c5;
     }
+    .choices{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:10px;
+    }
+    .choice-btn{
+      padding:12px 10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-size:16px;
+      font-weight:700;
+      cursor:pointer;
+      user-select:none;
+    }
+    .choice-btn:active{ transform: translateY(1px); }
     .help{ font-size:12px; color:var(--muted); margin-top:8px; }
     .hr{ height:1px; background:var(--line); margin:12px 0; }
     .small{ font-size:12px; color:var(--muted); }
@@ -178,6 +195,7 @@
               <option value="sub">뺄셈</option>
               <option value="mul">곱셈</option>
               <option value="div">나눗셈</option>
+              <option value="trig">삼각함수</option>
             </select>
           </div>
 
@@ -234,7 +252,7 @@
           </div>
           <div id="lockNote" class="lock-note" style="display:none;">로그인 후 사용할 수 있습니다.</div>
 
-          <div class="answerRow">
+          <div class="answerRow" id="answerRow">
             <input
               id="answerInput"
               type="text"
@@ -250,7 +268,10 @@
           <div id="status" class="status"></div>
 
           <!-- On-screen keypad -->
-          <div class="kbd" aria-label="숫자패드">
+          <div id="choiceBox" class="choices" style="display:none;"></div>
+
+          <!-- On-screen keypad -->
+          <div class="kbd" id="kbd" aria-label="숫자패드">
             <button class="kbtn" data-k="1">1</button>
             <button class="kbtn" data-k="2">2</button>
             <button class="kbtn" data-k="3">3</button>
@@ -265,7 +286,7 @@
             <button class="kbtn action" data-act="enter">⏎</button>
           </div>
 
-          <div class="help">
+          <div class="help" id="kbdHelp">
             ※ 모바일은 위 숫자패드를 써도 되고, 입력칸 터치 시 숫자 키패드가 뜨도록 설정했습니다.
           </div>
         </div>
@@ -321,6 +342,9 @@
         { name: "(두자리,두자리)", a:2, b:2, t:2.5 },
         { name: "(세자리,한자리)", a:3, b:1, t:3.0 },
         { name: "(세자리,두자리)", a:3, b:2, t:4.0 },
+      ],
+      trig: [
+        { name: "(1단계)", a:0, b:0, t:1.0 }
       ]
     };
 
@@ -349,9 +373,13 @@
     const badCntEl = document.getElementById("badCnt");
 
     const problemBox = document.getElementById("problemBox");
+    const answerRow = document.getElementById("answerRow");
     const answerInput = document.getElementById("answerInput");
     const submitBtn = document.getElementById("submitBtn");
     const statusEl = document.getElementById("status");
+    const choiceBox = document.getElementById("choiceBox");
+    const kbd = document.getElementById("kbd");
+    const kbdHelp = document.getElementById("kbdHelp");
 
     // ====== State ======
     let running = false;
@@ -377,12 +405,27 @@
       if(d === 1) return randint(1, 9);
       return randint(pow10(d-1), pow10(d)-1);
     }
+    const TRIG_CHOICES = {
+      sincos: ["0", "1/2", "√2/2", "√3/2", "1"],
+      tan: ["0", "1/3", "√3/3", "1", "√3"]
+    };
+    const TRIG_TABLE = {
+      "deg:0":   { sin:"0",     cos:"1",     tan:"0" },
+      "deg:30":  { sin:"1/2",   cos:"√3/2",  tan:"√3/3" },
+      "deg:45":  { sin:"√2/2",  cos:"√2/2",  tan:"1" },
+      "deg:60":  { sin:"√3/2",  cos:"1/2",   tan:"√3" },
+      "deg:90":  { sin:"1",     cos:"0",     tan:null },
+      "rad:π/6": { sin:"1/2",   cos:"√3/2",  tan:"√3/3" },
+      "rad:π/4": { sin:"√2/2",  cos:"√2/2",  tan:"1" },
+      "rad:π/3": { sin:"√3/2",  cos:"1/2",   tan:"√3" },
+      "rad:π/2": { sin:"1",     cos:"0",     tan:null }
+    };
     function updateRuleUI(){
       const op = opSelect.value;
       const ladder = ladders[op];
       const idx = levelSelect.selectedIndex;
       const lvl = ladder[idx];
-      const sym = op === "add" ? "+" : op === "sub" ? "−" : op === "mul" ? "×" : "÷";
+      const sym = op === "add" ? "+" : op === "sub" ? "−" : op === "mul" ? "×" : op === "div" ? "÷" : "";
 
       let extra = "";
       if(op === "div") extra = " (항상 정수로 나누어떨어짐)";
@@ -403,7 +446,7 @@
       settingText.textContent = parts.join(" / ");
     }
     function opLabel(op){
-      return op === "add" ? "덧셈" : op === "sub" ? "뺄셈" : op === "mul" ? "곱셈" : "나눗셈";
+      return op === "add" ? "덧셈" : op === "sub" ? "뺄셈" : op === "mul" ? "곱셈" : op === "div" ? "나눗셈" : "삼각함수";
     }
     function setUIRunning(on){
       running = on;
@@ -472,6 +515,10 @@
         if(isLocked || running) return;
         startBtn.click();
       });
+      choiceBox.style.display = "none";
+      answerRow.style.display = "flex";
+      kbd.style.display = "grid";
+      kbdHelp.style.display = "block";
     }
 
     function clearTimers(){
@@ -600,6 +647,7 @@
         problem: entry.problem,
         answer: entry.answer,
         limit: entry.limit,
+        choices: entry.choices || null,
         reasons: { wrong: false, slow: false },
         stage: 0,
         nextAt: now,
@@ -608,6 +656,7 @@
         lastTs: entry.ts
       };
       item.limit = entry.limit;
+      item.choices = entry.choices || null;
       item.reasons.wrong = item.reasons.wrong || !!reason.wrong;
       item.reasons.slow = item.reasons.slow || !!reason.slow;
       item.stage = 0;
@@ -629,6 +678,7 @@
         problem: current.shownText,
         answer: current.answer,
         userAnswer: userAnswer,
+        choices: current.isChoice ? (current.choices || []) : null,
         time: Number(timeSec.toFixed(1)),
         limit: limitSec,
         result: result,
@@ -660,12 +710,16 @@
       const ladder = ladders[op];
       const lvl = ladder[levelSelect.selectedIndex];
 
-      let a = randNDigits(lvl.a);
-      let b = randNDigits(lvl.b);
+      let a = 0;
+      let b = 0;
+      if(op !== "trig"){
+        a = randNDigits(lvl.a);
+        b = randNDigits(lvl.b);
+      }
 
       // Avoid super-trivial for multi-digit: prevent b=0 in division and multiplication?
       // We'll handle per-op.
-      let answer, shown;
+      let answer, shown, choices, isChoice;
 
       if(op === "add"){
         answer = a + b;
@@ -728,9 +782,34 @@
         b = divisor;
         answer = quotient;
         shown = `${a} ÷ ${b}`;
+      } else if(op === "trig"){
+        const funcs = ["sin", "cos", "tan"];
+        const func = funcs[randint(0, funcs.length - 1)];
+        const useRad = Math.random() < 0.5;
+        const degAngles = [0, 30, 45, 60, 90];
+        const radAngles = ["π/6", "π/4", "π/3", "π/2"];
+        let angleText = "";
+        let key = "";
+        if(useRad){
+          let candidates = radAngles.slice();
+          if(func === "tan"){ candidates = candidates.filter(a => a !== "π/2"); }
+          const angle = candidates[randint(0, candidates.length - 1)];
+          angleText = angle;
+          key = `rad:${angle}`;
+        } else {
+          let candidates = degAngles.slice();
+          if(func === "tan"){ candidates = candidates.filter(a => a !== 90); }
+          const angle = candidates[randint(0, candidates.length - 1)];
+          angleText = `${angle}°`;
+          key = `deg:${angle}`;
+        }
+        answer = TRIG_TABLE[key][func];
+        shown = `${func} ${angleText}`;
+        choices = func === "tan" ? TRIG_CHOICES.tan : TRIG_CHOICES.sincos;
+        isChoice = true;
       }
 
-      return { a, b, op, answer, shownText: shown };
+      return { a, b, op, answer, shownText: shown, choices, isChoice };
     }
 
     function renderProblem(){
@@ -738,6 +817,22 @@
       answerInput.value = "";
       statusEl.className = "status";
       statusEl.textContent = "";
+      if(current.isChoice){
+        choiceBox.style.display = "grid";
+        renderChoices(current.choices || []);
+        answerInput.disabled = true;
+        submitBtn.disabled = true;
+        answerRow.style.display = "none";
+        kbd.style.display = "none";
+        kbdHelp.style.display = "none";
+      } else {
+        choiceBox.style.display = "none";
+        answerInput.disabled = false;
+        submitBtn.disabled = false;
+        answerRow.style.display = "flex";
+        kbd.style.display = "grid";
+        kbdHelp.style.display = "block";
+      }
       qStartAt = Date.now();
       startQuestionTimer();
     }
@@ -772,8 +867,33 @@
       answerInput.value = "";
     }
 
+    function renderChoices(choices){
+      choiceBox.innerHTML = "";
+      choices.forEach(val => {
+        const btn = document.createElement("button");
+        btn.className = "choice-btn";
+        btn.type = "button";
+        btn.textContent = val;
+        btn.addEventListener("click", () => submitChoice(val));
+        choiceBox.appendChild(btn);
+      });
+    }
+
+    function submitChoice(val){
+      if(!running || !current || !current.isChoice) return;
+      if(val === current.answer){
+        recordAttempt("correct", val);
+        registerOk("정답!");
+      } else {
+        recordAttempt("wrong", val);
+        registerBad(`오답! 정답은 ${current.answer}`);
+      }
+      nextProblem();
+    }
+
     function submitAnswer(){
       if(!running || !current) return;
+      if(current.isChoice) return;
 
       const raw = answerInput.value.trim();
       if(raw === "") return;
