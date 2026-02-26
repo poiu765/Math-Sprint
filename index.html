@@ -1107,10 +1107,11 @@
     googleLoginBtn.addEventListener("click", async () => {
       try{
         await authReady;
-        if(isMobile()){
-          await auth.signInWithRedirect(provider);
-        } else {
+        // Prefer popup first; fallback to redirect if popup is blocked (common on iOS Safari)
+        try{
           await auth.signInWithPopup(provider);
+        } catch(e){
+          await auth.signInWithRedirect(provider);
         }
       } catch(e){
         authStatus.textContent = "로그인 중 오류가 발생했습니다.";
