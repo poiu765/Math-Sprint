@@ -406,10 +406,9 @@
     }
     function pow10(n){ return Math.pow(10, n); }
     function randNDigits(d){
-      // d=1 -> 0..9? Usually 1-digit includes 0..9. But to reduce trivial leading zeros, we do:
-      // 1-digit: 0..9
+      // 1-digit: 1..9 (avoid zero)
       // >=2-digit: 10^(d-1) .. 10^d - 1
-      if(d === 1) return randint(0, 9);
+      if(d === 1) return randint(1, 9);
       return randint(pow10(d-1), pow10(d)-1);
     }
     function updateRuleUI(){
