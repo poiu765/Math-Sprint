@@ -1012,10 +1012,27 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
     const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
     let authPersistenceMode = "LOCAL";
 
     function isMobile(){
       return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    }
+
+    function shouldFallbackToRedirect(err){
+      const code = err && err.code ? err.code : "";
+      return code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment";
+    }
+
+    function loginErrorText(err){
+      const code = err && err.code ? err.code : "unknown";
+      if(code === "auth/web-storage-unsupported"){
+        return "브라우저가 로그인 저장소를 차단했습니다. 시크릿 모드를 끄고 다시 시도해주세요.";
+      }
+      if(code === "auth/popup-closed-by-user"){
+        return "로그인 창이 닫혀 취소되었습니다.";
+      }
+      return `로그인 오류: ${code}`;
     }
 
     // ====== Events ======
@@ -1043,23 +1060,33 @@
     })();
 
     googleLoginBtn.addEventListener("click", async () => {
+      let redirectStarted = false;
       try{
+        googleLoginBtn.disabled = true;
         // Ensure persistence/redirect bootstrap is finished before first sign-in attempt.
         await authReady;
-        if(isMobile()){
-          authStatus.textContent = "로그인 진행 중...";
+        authStatus.textContent = "로그인 창을 여는 중...";
+        // Popup first (works better than redirect in some private-mode browsers)
+        try{
+          await auth.signInWithPopup(provider);
+          return;
+        } catch(popupErr){
+          if(!shouldFallbackToRedirect(popupErr) || authPersistenceMode === "NONE"){
+            throw popupErr;
+          }
+          authStatus.textContent = isMobile()
+            ? "팝업이 제한되어 리디렉트 로그인으로 전환합니다."
+            : "팝업이 차단되어 리디렉트 로그인으로 전환합니다.";
+          redirectStarted = true;
           await auth.signInWithRedirect(provider);
           return;
         }
-        // Prefer popup on desktop; fallback to redirect if popup is blocked
-        try{
-          await auth.signInWithPopup(provider);
-        } catch(e){
-          authStatus.textContent = "팝업이 차단되어 리디렉트로 전환합니다.";
-          await auth.signInWithRedirect(provider);
-        }
       } catch(e){
-        authStatus.textContent = "로그인 중 오류가 발생했습니다.";
+        authStatus.textContent = loginErrorText(e);
+      } finally {
+        if(!redirectStarted){
+          googleLoginBtn.disabled = false;
+        }
       }
     });
 
