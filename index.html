@@ -1019,6 +1019,11 @@
       return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     }
 
+    function isInAppBrowser(){
+      const ua = navigator.userAgent || "";
+      return /KAKAOTALK|FBAN|FBAV|Instagram|Line|NAVER|wv|WebView/i.test(ua);
+    }
+
     function shouldFallbackToRedirect(err){
       const code = err && err.code ? err.code : "";
       return code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment";
@@ -1026,11 +1031,17 @@
 
     function loginErrorText(err){
       const code = err && err.code ? err.code : "unknown";
+      if(code === "auth/missing-initial-state"){
+        return "인앱브라우저에서는 리디렉트 로그인이 실패할 수 있습니다. 우측 상단 메뉴에서 외부 브라우저(Chrome/Safari)로 열어 다시 로그인해주세요.";
+      }
       if(code === "auth/web-storage-unsupported"){
         return "브라우저가 로그인 저장소를 차단했습니다. 시크릿 모드를 끄고 다시 시도해주세요.";
       }
       if(code === "auth/popup-closed-by-user"){
         return "로그인 창이 닫혀 취소되었습니다.";
+      }
+      if((code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment") && isInAppBrowser()){
+        return "카카오톡 인앱브라우저에서는 Google 로그인이 제한될 수 있습니다. 외부 브라우저로 열어 로그인해주세요.";
       }
       return `로그인 오류: ${code}`;
     }
@@ -1071,7 +1082,7 @@
           await auth.signInWithPopup(provider);
           return;
         } catch(popupErr){
-          if(!shouldFallbackToRedirect(popupErr) || authPersistenceMode === "NONE"){
+          if(!shouldFallbackToRedirect(popupErr) || authPersistenceMode === "NONE" || isInAppBrowser()){
             throw popupErr;
           }
           authStatus.textContent = isMobile()
