@@ -1010,9 +1010,9 @@
       .catch(() => null);
 
     googleLoginBtn.addEventListener("click", async () => {
-      // fire-and-forget authReady; do not block login click
-      authReady.catch(() => {});
       try{
+        // Ensure persistence/redirect bootstrap is finished before first sign-in attempt.
+        await authReady;
         if(isMobile()){
           authStatus.textContent = "로그인 진행 중...";
           await auth.signInWithRedirect(provider);
