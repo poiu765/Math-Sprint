@@ -93,6 +93,29 @@
       padding:12px 20px;
       border-radius:12px;
     }
+    .timerbar{
+      margin-top:2px;
+      height:12px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      background:#f3f4f6;
+      overflow:hidden;
+    }
+    .timerbar.off{
+      opacity:.45;
+    }
+    .timerbar-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg, #22c55e, #84cc16);
+      transition:width .12s linear, background .18s ease;
+    }
+    .timerbar-fill.warn{
+      background:#f59e0b;
+    }
+    .timerbar-fill.danger{
+      background:#ef4444;
+    }
     .answerRow{
       display:flex; gap:10px; margin-top:10px; align-items:stretch;
     }
@@ -262,11 +285,19 @@
         <div class="meta">
           <div class="pill">
             <div class="k">세트 남은 시간</div>
-            <div class="v" id="setLeft">—</div>
+            <div class="v">
+              <div class="timerbar" id="setTimerBarWrap" aria-hidden="true">
+                <div class="timerbar-fill" id="setTimerBarFill"></div>
+              </div>
+            </div>
           </div>
           <div class="pill">
             <div class="k">문제 남은 시간</div>
-            <div class="v" id="qLeft">—</div>
+            <div class="v">
+              <div class="timerbar" id="qTimerBarWrap" aria-hidden="true">
+                <div class="timerbar-fill" id="qTimerBarFill"></div>
+              </div>
+            </div>
           </div>
           <div class="pill">
             <div class="k">정답</div>
@@ -401,8 +432,10 @@
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
 
-    const setLeftEl = document.getElementById("setLeft");
-    const qLeftEl = document.getElementById("qLeft");
+    const setTimerBarWrap = document.getElementById("setTimerBarWrap");
+    const setTimerBarFill = document.getElementById("setTimerBarFill");
+    const qTimerBarWrap = document.getElementById("qTimerBarWrap");
+    const qTimerBarFill = document.getElementById("qTimerBarFill");
     const okCntEl = document.getElementById("okCnt");
     const badCntEl = document.getElementById("badCnt");
 
@@ -424,7 +457,9 @@
     let currentUserEmail = null;
 
     let setTimer = null, qTimer = null;
+    let setBarRaf = null, qBarRaf = null;
     let setEndAt = null, qEndAt = null;
+    let setLimitMs = null, qLimitMs = null;
 
     // ====== Helpers ======
     function randint(min, max){
@@ -567,16 +602,49 @@
       choiceBox.style.display = "none";
       answerRow.style.display = "flex";
       kbd.style.display = "grid";
+      setQuestionBarRatio(0);
       // no help text
+    }
+
+    function setTimerBarRatio(wrapEl, fillEl, ratio, enabled){
+      if(!wrapEl || !fillEl) return;
+      if(!enabled){
+        wrapEl.classList.add("off");
+        fillEl.classList.remove("warn", "danger");
+        fillEl.style.width = "0%";
+        return;
+      }
+      const pct = Math.max(0, Math.min(1, ratio));
+      wrapEl.classList.remove("off");
+      fillEl.style.width = `${(pct * 100).toFixed(1)}%`;
+      if(pct <= 0.25){
+        fillEl.classList.add("danger");
+        fillEl.classList.remove("warn");
+      } else if(pct <= 0.5){
+        fillEl.classList.add("warn");
+        fillEl.classList.remove("danger");
+      } else {
+        fillEl.classList.remove("warn", "danger");
+      }
+    }
+    function setSetBarRatio(ratio){
+      setTimerBarRatio(setTimerBarWrap, setTimerBarFill, ratio, useSet.checked);
+    }
+    function setQuestionBarRatio(ratio){
+      setTimerBarRatio(qTimerBarWrap, qTimerBarFill, ratio, usePerQ.checked);
     }
 
     function clearTimers(){
       if(setTimer){ clearInterval(setTimer); setTimer = null; }
       if(qTimer){ clearInterval(qTimer); qTimer = null; }
+      if(setBarRaf){ cancelAnimationFrame(setBarRaf); setBarRaf = null; }
+      if(qBarRaf){ cancelAnimationFrame(qBarRaf); qBarRaf = null; }
       setEndAt = null;
       qEndAt = null;
-      setLeftEl.textContent = "—";
-      qLeftEl.textContent = "—";
+      setLimitMs = null;
+      qLimitMs = null;
+      setSetBarRatio(0);
+      setQuestionBarRatio(0);
     }
 
     function startSetTimers(){
@@ -586,41 +654,65 @@
       if(useSet.checked){
         const s = clampInt(setSec.value, 10, 600);
         setSec.value = s;
-        setEndAt = now + s * 1000;
+        setLimitMs = s * 1000;
+        setEndAt = now + setLimitMs;
+        setSetBarRatio(1);
+        const tickSetBar = () => {
+          if(!setEndAt || !setLimitMs) return;
+          const leftMs = setEndAt - Date.now();
+          setSetBarRatio(leftMs / setLimitMs);
+          if(leftMs > 0){
+            setBarRaf = requestAnimationFrame(tickSetBar);
+          } else {
+            setBarRaf = null;
+          }
+        };
+        setBarRaf = requestAnimationFrame(tickSetBar);
         setTimer = setInterval(() => {
           const leftMs = setEndAt - Date.now();
-          const left = Math.max(0, Math.ceil(leftMs / 1000));
-          setLeftEl.textContent = left + "s";
           if(leftMs <= 0){
             endRun("세트 시간이 종료되었습니다.");
           }
-        }, 150);
+        }, 120);
       } else {
-        setLeftEl.textContent = "OFF";
+        setSetBarRatio(0);
       }
     }
 
     function startQuestionTimer(){
       if(qTimer){ clearInterval(qTimer); qTimer = null; }
+      if(qBarRaf){ cancelAnimationFrame(qBarRaf); qBarRaf = null; }
       qEndAt = null;
 
       if(usePerQ.checked){
         const s = clampFloat(perQSec.value, 0.5, 30);
         perQSec.value = s.toFixed(1);
-        qEndAt = Date.now() + s * 1000;
+        qLimitMs = s * 1000;
+        qEndAt = Date.now() + qLimitMs;
+        setQuestionBarRatio(1);
+        const tickBar = () => {
+          if(!qEndAt || !qLimitMs) return;
+          const leftMs = qEndAt - Date.now();
+          const ratio = leftMs / qLimitMs;
+          setQuestionBarRatio(ratio);
+          if(leftMs > 0){
+            qBarRaf = requestAnimationFrame(tickBar);
+          } else {
+            qBarRaf = null;
+          }
+        };
+        qBarRaf = requestAnimationFrame(tickBar);
         qTimer = setInterval(() => {
           const leftMs = qEndAt - Date.now();
-          const left = Math.max(0, Math.ceil(leftMs / 1000));
-          qLeftEl.textContent = left + "s";
           if(leftMs <= 0){
             // time out counts as bad, then next
             recordAttempt("timeout", null);
             registerBad(`시간초과! 정답은 ${current.answer}`);
             nextProblem();
           }
-        }, 120);
+        }, 60);
       } else {
-        qLeftEl.textContent = "OFF";
+        setQuestionBarRatio(0);
       }
     }
 
@@ -1122,11 +1214,19 @@
       perQSec.disabled = running || !usePerQ.checked;
       if(usePerQ.checked){
         updateRuleUI();
+        setQuestionBarRatio(1);
+      } else {
+        setQuestionBarRatio(0);
       }
       updateSettingUI();
     });
     useSet.addEventListener("change", () => {
       setSec.disabled = running || !useSet.checked;
+      if(useSet.checked){
+        setSetBarRatio(1);
+      } else {
+        setSetBarRatio(0);
+      }
       updateSettingUI();
     });
     perQSec.addEventListener("input", () => {
@@ -1195,6 +1295,8 @@
     usePerQ.checked = true;
     usePerQ.disabled = false;
     perQSec.disabled = !usePerQ.checked;
+    setSetBarRatio(1);
+    setQuestionBarRatio(1);
   </script>
 </body>
 </html>
