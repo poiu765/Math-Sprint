@@ -535,7 +535,10 @@
         googleLoginBtn.disabled = true;
         setGameLocked(false);
       } else {
-        authStatus.textContent = "로그인하지 않으면 게임을 사용할 수 없습니다.";
+        const privateHint = authPersistenceMode === "NONE"
+          ? " (시크릿/추적방지 환경에서는 로그인 유지가 제한될 수 있습니다.)"
+          : "";
+        authStatus.textContent = `로그인하지 않으면 게임을 사용할 수 없습니다.${privateHint}`;
         logoutBtn.disabled = true;
         googleLoginBtn.disabled = false;
         setGameLocked(true);
@@ -998,16 +1001,35 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
     const provider = new firebase.auth.GoogleAuthProvider();
+    let authPersistenceMode = "LOCAL";
 
     function isMobile(){
       return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     }
 
     // ====== Events ======
-    const authReady = auth
-      .setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-      .then(() => auth.getRedirectResult())
-      .catch(() => null);
+    async function initAuthPersistence(){
+      const options = [
+        { name: "LOCAL", value: firebase.auth.Auth.Persistence.LOCAL },
+        { name: "SESSION", value: firebase.auth.Auth.Persistence.SESSION },
+        { name: "NONE", value: firebase.auth.Auth.Persistence.NONE }
+      ];
+      for(const opt of options){
+        try{
+          await auth.setPersistence(opt.value);
+          authPersistenceMode = opt.name;
+          return;
+        } catch(e){}
+      }
+      authPersistenceMode = "NONE";
+    }
+
+    const authReady = (async () => {
+      await initAuthPersistence();
+      try{
+        await auth.getRedirectResult();
+      } catch(e){}
+    })();
 
     googleLoginBtn.addEventListener("click", async () => {
       try{

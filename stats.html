@@ -245,6 +245,7 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
     const ADMIN_EMAIL = "ghdwogus1284@gmail.com";
+    let authPersistenceMode = "LOCAL";
 
     const authStatus = document.getElementById("authStatus");
     const statsEmpty = document.getElementById("statsEmpty");
@@ -276,6 +277,29 @@
     let selectedWeak = new Set();
     let practiceTimer = null;
     let practiceEndAt = null;
+
+    async function initAuthPersistence(){
+      const options = [
+        { name: "LOCAL", value: firebase.auth.Auth.Persistence.LOCAL },
+        { name: "SESSION", value: firebase.auth.Auth.Persistence.SESSION },
+        { name: "NONE", value: firebase.auth.Auth.Persistence.NONE }
+      ];
+      for(const opt of options){
+        try{
+          await auth.setPersistence(opt.value);
+          authPersistenceMode = opt.name;
+          return;
+        } catch(e){}
+      }
+      authPersistenceMode = "NONE";
+    }
+
+    const authReady = (async () => {
+      await initAuthPersistence();
+      try{
+        await auth.getRedirectResult();
+      } catch(e){}
+    })();
 
     function opLabel(op){
       return op === "add" ? "덧셈" : op === "sub" ? "뺄셈" : op === "mul" ? "곱셈" : op === "div" ? "나눗셈" : "삼각함수";
@@ -775,31 +799,36 @@
       showPracticeIdle("약점이 삭제되었습니다.");
     });
 
-    auth.onAuthStateChanged((user) => {
-      if(user){
-        const label = user.displayName || user.email || "로그인됨";
-        authStatus.textContent = `로그인됨: ${label}`;
-        logoutBtn.disabled = false;
-        currentUserId = user.uid;
-        renderStats(user.uid);
-        renderWeakList(user.uid);
-        showPracticeIdle("약점 연습을 시작하세요.");
-        populateLevelOptions();
-        if(user.email === ADMIN_EMAIL){
-          adminCard.style.display = "block";
-          renderAdminStats();
+    authReady.finally(() => {
+      auth.onAuthStateChanged((user) => {
+        if(user){
+          const label = user.displayName || user.email || "로그인됨";
+          authStatus.textContent = `로그인됨: ${label}`;
+          logoutBtn.disabled = false;
+          currentUserId = user.uid;
+          renderStats(user.uid);
+          renderWeakList(user.uid);
+          showPracticeIdle("약점 연습을 시작하세요.");
+          populateLevelOptions();
+          if(user.email === ADMIN_EMAIL){
+            adminCard.style.display = "block";
+            renderAdminStats();
+          } else {
+            adminCard.style.display = "none";
+          }
         } else {
+          const privateHint = authPersistenceMode === "NONE"
+            ? " (시크릿/추적방지 환경에서는 로그인 유지가 제한될 수 있습니다.)"
+            : "";
+          authStatus.textContent = `로그인하지 않으면 기록을 볼 수 없습니다.${privateHint}`;
+          logoutBtn.disabled = true;
+          currentUserId = null;
+          renderStats(null);
+          renderWeakList(null);
+          showPracticeIdle("로그인 후 약점 연습을 사용할 수 있습니다.");
           adminCard.style.display = "none";
         }
-      } else {
-        authStatus.textContent = "로그인하지 않으면 기록을 볼 수 없습니다.";
-        logoutBtn.disabled = true;
-        currentUserId = null;
-        renderStats(null);
-        renderWeakList(null);
-        showPracticeIdle("로그인 후 약점 연습을 사용할 수 있습니다.");
-        adminCard.style.display = "none";
-      }
+      });
     });
   </script>
 </body>
